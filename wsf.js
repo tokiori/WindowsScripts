@@ -422,8 +422,7 @@ WrapPath.prototype = {
 			rtn.path = obj.Path;
 			rtn.type = obj.Type;
 			rtn.size = obj.Size;
-		}
-		if(rtn.isdir){
+		} else if(rtn.isdir){
 			var obj = this.fso.GetFolder(path);
 			rtn.createdate = obj.DateCreated;
 			rtn.updatedate = obj.DateLastModified;
@@ -432,7 +431,7 @@ WrapPath.prototype = {
 			rtn.parent = obj.ParentFolder;
 			rtn.path = obj.Path;
 			rtn.type = obj.Type;
-			rtn.size = obj.Size;
+//			rtn.size = obj.Size;
 			rtn.isroot = obj.IsRootFolder;
 		}
 		return rtn;
