@@ -28,9 +28,6 @@ WSFで使用頻度が高い（環境が変わってもよく再利用する）�
   - 「wsf.js」の簡易的な機能確認スクリプト（サンプル）。
   - 実行すると「wsf.js.test_[YYYYMMDDhhmmss].wsf」の実行ログが作成される。
 
-- testdirフォルダ
-  - 「wsf.js.test.wsf」で使用するテストフォルダ（ファイル）。
-
 - tools.sendtoフォルダ
   - 「wsf.js」を利用したwindowsの送るメニューに登録するスクリプト。
 
