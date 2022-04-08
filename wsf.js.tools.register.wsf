@@ -1,0 +1,59 @@
+<job id="wsf.tools.register">
+	<script language="JScript" src="./wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.tools.register
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+var name = "wsf.tools.register";
+js.log.on();
+js.log.info(js.str.format("[${0}] start.", name));
+
+var RegistSendTo = function(){};
+RegistSendTo.prototype = {
+	topath : function(){
+		var appdata = js.cmd.env("%AppData%");
+		var parts = [];
+			parts.push(appdata);
+			// なぜかAppDataに「Roaming」まで指定されていることがあるのでその場合は「Roaming」をスキップ
+			if(!appdata.match(/\\Roaming\\?$/)) parts.push('Roaming');
+			parts.push('Microsoft');
+			parts.push('Windows');
+			parts.push('SendTo');
+		return js.path.join(parts);
+	},
+	check : function(path){
+		if(js.path.isdir(path)){
+			js.log.info(js.str.format("[RegistSendTo.check]:exist dir.(${0})", path));
+			return true;
+		} else {
+			js.log.err(js.str.format("[RegistSendTo.check]:not exist dir.(${0})", path));
+			return false;
+		}
+	},
+	exec : function(frompath){
+		var topath = this.topath();
+		if(this.check(frompath) && this.check(topath)){
+			js.path.each(frompath, function(path){
+				var scpath = js.path.join(topath, js.path.info(path).filename.replace(/(\.[^\.]+$)/, ".lnk"));
+				js.cmd.createshortcut(path, scpath);
+				js.log.info("[RegistSendTo.exec]:create->" + scpath);
+			}, {filter:/\.wsf$/});
+			js.log.info("[RegistSendTo.exec]:done.");
+		} else {
+			js.log.err("[RegistSendTo.exec]:fail.");
+		}
+	}
+};
+var regsendto = new RegistSendTo();
+regsendto.exec("tools.sendto");
+
+js.log.info(js.str.format("[${0}] complete.", name));
+js.echo(js.str.format("[${0}] complete.", name));
+	</Script>
+</job>

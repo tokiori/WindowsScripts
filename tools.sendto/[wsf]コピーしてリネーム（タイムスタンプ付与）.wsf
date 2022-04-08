@@ -1,0 +1,33 @@
+<job id="wsf.tools.sendto.renameCopy">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.tools.sendto.renameCopy
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+var renameCopy = function(frompath){
+	var suffix = js.date.now("_YYYYMMDDhhmmss");
+	if(js.path.isdir(frompath)){
+		var topath = frompath + suffix;
+		js.path.cpdir(frompath, topath);
+	} else if(js.path.isfile(frompath)){
+		var info = js.path.info(frompath);
+		var topath = frompath.replace(/(\.[^\.]+)$/, suffix + "$1");
+		if(info.extname.length == 0){
+			topath = frompath + suffix;
+		}
+		js.path.cp(frompath, topath);
+	}
+};
+
+js.each(js.args, function(i, path){
+	renameCopy(path);
+});
+
+	</Script>
+</job>

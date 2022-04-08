@@ -1,0 +1,234 @@
+<job id="wsf.js.test">
+	<script language="JScript" src="./wsf.js"/>
+	<script language="JScript">
+
+		var isConsole = function(){
+			if(WScript.FullName.toLowerCase().match(/cscript.exe$/)){
+				return true;
+			}
+			return false;
+		};
+
+var jstest = function(){ return this; };
+jstest.prototype = {
+	result : function(val){
+		if(js.log.enabled()){
+			js.log.add(val);
+		}else{
+			js.echo(val);
+		}
+	}
+};
+var test = new jstest();
+
+var jsdatetest = function(){ return this; };
+jsdatetest.prototype = {
+	now : function(){
+		var test = [];
+		test.push("YYYY/MM/DD(aaa) hh:mm:ss.ms");
+		test.push("YY/M/D h:m:s.ms");
+		var res = js.each(test, function(i, val){
+			var map = {
+				val : val,
+				now : js.date.now(val)
+			}
+			return js.str.mapping("[js.date.now('${val}')]->${now}", map);
+		});
+		return res.join("\r\n");
+	},
+	exec : function(){
+		var res = [];
+		res.push(this.now());
+		test.result(res.join("\r\n"));
+	}
+};
+jstest.prototype.date = new jsdatetest();
+
+var jspathtest = function(){ return this; };
+jspathtest.prototype = {
+	isdir : function(){
+		var test = [];
+		test.push(js.execfile);
+		test.push(js.path.parent(js.execfile));
+		test.push("YY/M/D h:m:s");
+		var res = js.each(test, function(i, val){
+			return js.str.format("[js.path.isdir('${0}')]->[${1}]", val, String(js.path.isdir(val)));
+		});
+		return res.join("\r\n");
+	},
+	isfile : function(){
+		var test = [];
+		test.push(js.execfile);
+		test.push(js.path.parent(js.execfile));
+		test.push("YY/M/D h:m:s");
+		var res = js.each(test, function(i, val){
+			return js.str.format("[js.path.isfile('${0}')]->[${1}]", val, String(js.path.isfile(val)));
+		});
+		return res.join("\r\n");
+	},
+	join : function(){
+		var test = [];
+		test.push(js.path.parent(js.execfile));
+		test.push("YYYYMMDDhhmmss");
+		test.push("filename.txt");
+		var res = [];
+		res.push(js.str.format("[js.path.join(${0})]->${1}", " '" + test.join("','") + "' ", String(js.path.join(test[0], test[1], test[2]))));
+		res.push(js.str.format("[js.path.join(${0})]->${1}", "['" + test.join("','") + "']", String(js.path.join(test))));
+		return res.join("\r\n");
+	},
+	each : function(dir, opt){
+		var _opt = (js.isobject(opt)) ? ", { " + js.each(opt, function(key, val){ return key + ":" + val }).join(", ") + " }" : "";
+		var ret = js.path.each(dir, function(path){
+			var info = js.path.info(path);
+			return js.str.format("[js.path.each('${2}'${3})][${0}]${1}", info.isdir ? "d" : "f", info.fullpath, dir, _opt);
+		}, opt);
+		return (ret.length > 0) ? ret.join("\r\n") : js.str.format("[js.path.each('${0}')] not found.", dir);
+	},
+	touch : function(){
+		var test = [];
+		test.push(js.path.parent(js.execfile));
+		test.push(js.str.format("touch${0}.txt", js.date.now("YYYYMMDDhhmmss")));
+		var res = [];
+		var path = js.path.join(test);
+		res.push(js.str.format("[js.path.touch(1)] ${0}:${1}", path, String(js.path.touch(path))));
+		return res.join("\r\n");
+	},
+	cpdir : function(fromdir, todir){
+		var res = [];
+		js.path.cpdir(fromdir, todir);
+		res.push(js.str.format("[js.path.cpdir('${0}', '${1}')]", fromdir, todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir, js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	mvdir : function(fromdir, todir){
+		var res = [];
+		js.path.mvdir(fromdir, todir);
+		res.push(js.str.format("[js.path.mvdir('${0}', '${1}')]", fromdir, todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", fromdir, js.path.isdir(fromdir)));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir,   js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	rmdir : function(todir){
+		var res = [];
+		js.path.rmdir(todir);
+		res.push(js.str.format("[js.path.rmdir('${0}')]", todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir, js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	copy : function(fromdir, todir){
+		var res = [];
+		js.path.copy(fromdir, todir);
+		res.push(js.str.format("[js.path.copy('${0}', '${1}')]", fromdir, todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir, js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	move : function(fromdir, todir){
+		var res = [];
+		js.path.move(fromdir, todir);
+		res.push(js.str.format("[js.path.move('${0}', '${1}')]", fromdir, todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", fromdir, js.path.isdir(fromdir)));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir,   js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	remove : function(todir){
+		var res = [];
+		js.path.remove(todir);
+		res.push(js.str.format("[js.path.remove('${0}')]", todir));
+		res.push(js.str.format("[js.path.isdir('${0}')]->[${1}]", todir, js.path.isdir(todir)));
+		return res.join("\r\n");
+	},
+	exec : function(){
+		var testdir = 'testdir'
+		var copydir = 'copydir'
+		var movedir = 'movedir'
+		var res = [];
+		res.push(this.isdir());
+		res.push(this.isfile());
+		res.push(this.join());
+		res.push(this.each(testdir, {nest:1}));
+		res.push(this.cpdir(testdir, copydir));
+		res.push(this.each(copydir));
+		res.push(this.mvdir(copydir, movedir));
+		res.push(this.each(movedir, {nest:2}));
+		res.push(this.rmdir(movedir));
+		res.push(this.each(movedir));
+		res.push(this.copy(testdir, copydir));
+		res.push(this.each(copydir));
+		res.push(this.move(copydir, movedir));
+		res.push(this.each(movedir, {nest:2}));
+		res.push(this.remove(movedir));
+		res.push(this.each(movedir));
+//		res.push(this.touch());
+		test.result(res.join("\r\n"));
+	}
+};
+jstest.prototype.path = new jspathtest();
+
+var jslogtest = function(){ return this; };
+jslogtest.prototype = {
+	exec : function(){
+		js.log.init({
+			info   : true,
+			warn   : true,
+			err    : true,
+			dbg    : true
+		});
+		var enabled = js.log.enabled();
+		if(!enabled) js.log.on();
+		js.log.info("[js.log.info] this is info.");
+		js.log.warn("[js.log.warn] this is warn.");
+		js.log.err("[js.log.err] this is error.");
+		js.log.dbg("[js.log.dbg] this is debug.");
+		js.log.info("[js.log.info] logfile is default.");
+		if(!enabled) js.log.off();
+	}
+};
+jstest.prototype.log = new jslogtest();
+
+var jsbooktest = function(){ return this; };
+jsbooktest.prototype = {
+	A1toR1C1 : function(){
+		var testval = [];
+			testval.push("A1");
+			testval.push("Z26");
+			testval.push("A1:Z26");
+			testval.push("AA27");
+			testval.push("BA53");
+			testval.push("ZZ702");
+			testval.push("AAA703");
+			testval.push("ABC731");
+			testval.push("XFD16384");
+			testval.push("$Z$26");
+			testval.push("A1:XFD16384");
+			testval.push("A$1:$XFD16384");
+			testval.push("$A$1:$XFD$16384");
+		var fillcnt = js.longestvalue(testval).length;
+		var res = js.each(testval, function(i, val){
+			var res = js.book.A1toR1C1(val);
+			var arr = js.each(res, function(i, data){
+				var col = js.str.fill(data.col, 6, " ", true);
+				var row = js.str.fill(data.row, 6, " ", true);
+				return js.str.format("[${0}, ${1}]", row, col);
+			});
+			return js.str.format("    A1->[${0}] : R1C1->${1}", js.str.fill(val, fillcnt), arr.join(","));
+		});
+		res.unshift("[js.book.A1toR1C1]");
+
+		test.result(res.join("\r\n"));
+	},
+	exec : function(){
+		this.A1toR1C1();
+	}
+};
+jstest.prototype.book = new jsbooktest();
+
+js.log.on();
+test.log.exec();
+test.date.exec();
+test.path.exec();
+test.book.exec();
+
+js.echo("[test] complete.");
+
+	</Script>
+</job>

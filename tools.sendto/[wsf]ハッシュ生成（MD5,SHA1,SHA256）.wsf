@@ -1,0 +1,67 @@
+<job id="wsf.tools.sendto.genHash">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.tools.sendto.genHash
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+var genHash = function(frompath){
+	if(!js.path.isfile(frompath)){
+		js.echo(js.msg.get("NotExistFile", frompath));
+		return false;
+	}
+	var res = js.each(js.cmd.HASHTYPE, function(key, val){
+		var res = js.cmd.hash(frompath, val);
+//		var out = res.StdOut.ReadAll();
+		var out = "";
+		var i = 0;
+		while (!res.StdOut.AtEndOfStream) {
+			txt = res.StdOut.ReadLine();
+			if(i == 1){
+				out = txt.replace(/ /g, "");
+			}
+			i++;
+		}
+		var err = res.StdErr.ReadAll();
+		var state = res.State;
+		var code = res.ExitCode;
+		var arr = [];
+		arr.push("--- " + val + " ---");
+		if(!js.isnullorempty(out)){
+			arr.push(out);
+		}
+		if(!js.isnullorempty(err)){
+			arr.push("--- " + val + " StdErr ---");
+			arr.push(err);
+		}
+		if(!js.isnullorempty(code) && code != 0){
+			arr.push("--- " + val + " ExitCode ---");
+			arr.push(code);
+		}
+		arr.push("");
+		return arr.join("\r\n");
+	});
+	var info = js.path.info(frompath);
+	var msgarr = [];
+	msgarr.push(js.str.format("[${0}] genHash.", js.date.now("YYYY/MM/DD hh:mm:ss")));
+	msgarr.push(js.str.format("path   : ${0}", frompath));
+	msgarr.push(js.str.format("size   : ${0} byte.", info.size));
+	msgarr.push(js.str.format("update : ${0}", js.date.format(new Date(info.updatedate), "YYYY/MM/DD hh:mm:ss")));
+	msgarr.push("");
+	res.unshift(msgarr.join("\r\n"));
+	var topath = frompath + ".hash.txt";
+	js.path.writefile(topath, res.join("\r\n"));
+	return true;
+};
+
+js.each(js.args, function(i, path){
+	genHash(path);
+});
+
+	</Script>
+</job>
