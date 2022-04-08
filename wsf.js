@@ -17,8 +17,8 @@ WindowsJScript.prototype = {
 			this.args.push(WScript.Arguments.Item(i));
 		}
 	},
-
-	echo:function(arg){ WScript.Echo(arg); },
+	quit : function(){ WScript.Quit(); },
+	echo : function(arg){ WScript.Echo(arg); },
 
 	isundefined   : function(argv){ return argv === undefined; },
 	isnull        : function(argv){ return argv === null; },
@@ -50,11 +50,6 @@ WindowsJScript.prototype = {
 				ret = true;
 				break;
 			}
-		}
-
-		if(ret){
-			WScript.Echo(WScript.ScriptName + " is already running")
-			WScript.Quit()
 		}
 		return ret;
 	},
@@ -503,7 +498,8 @@ WrapPath.prototype = {
 		if(js.isobject(args[0])){
 			args = args[0];
 		}
-		var path = args.shift();
+//		var path = args.shift();
+		var path = this.info(args.shift()).fullpath;
 		js.each(args, function(i, val){
 			path = self.fso.BuildPath(path, val);
 		});

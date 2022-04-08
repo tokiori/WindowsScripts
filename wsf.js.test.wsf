@@ -84,13 +84,20 @@ jspathtest.prototype = {
 		}, opt);
 		return (ret.length > 0) ? ret.join("\r\n") : js.str.format("[js.path.each('${0}')] not found.", dir);
 	},
-	touch : function(){
-		var test = [];
-		test.push(js.path.parent(js.execfile));
-		test.push(js.str.format("touch${0}.txt", js.date.now("YYYYMMDDhhmmss")));
+	make : function(path){
 		var res = [];
-		var path = js.path.join(test);
-		res.push(js.str.format("[js.path.touch(1)] ${0}:${1}", path, String(js.path.touch(path))));
+		var dir = js.path.join(path, "dir1/dir2/dir3");
+		res.push(js.str.format("[js.path.mkdir('${0}')]->[${1}]", dir, js.path.mkdir(dir)));
+		var file1a = js.path.join(path, "file1a.txt");
+		var file1b = js.path.join(path, "file1b.txt");
+		var file2 = js.path.join(path, "dir1/file2.txt");
+		var file3 = js.path.join(path, "dir1/dir2/file3.txt");
+		var file4 = js.path.join(path, "dir1/dir2/dir3/file4.txt");
+		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file1a, js.path.touch(file1a)));
+		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file1b, js.path.touch(file1b)));
+		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file2, js.path.touch(file2)));
+		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file3, js.path.touch(file3)));
+		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file4, js.path.touch(file4)));
 		return res.join("\r\n");
 	},
 	cpdir : function(fromdir, todir){
@@ -145,20 +152,26 @@ jspathtest.prototype = {
 		res.push(this.isdir());
 		res.push(this.isfile());
 		res.push(this.join());
-		res.push(this.each(testdir, {nest:1}));
+
+		res.push(this.make(testdir));
+		res.push(this.each(testdir));
+		res.push(this.each(testdir, {nest:0}));
 		res.push(this.cpdir(testdir, copydir));
 		res.push(this.each(copydir));
 		res.push(this.mvdir(copydir, movedir));
-		res.push(this.each(movedir, {nest:2}));
+		res.push(this.each(movedir, {nest:1}));
 		res.push(this.rmdir(movedir));
 		res.push(this.each(movedir));
+
 		res.push(this.copy(testdir, copydir));
 		res.push(this.each(copydir));
 		res.push(this.move(copydir, movedir));
 		res.push(this.each(movedir, {nest:2}));
+		res.push(this.remove(testdir));
 		res.push(this.remove(movedir));
+		res.push(this.each(testdir));
 		res.push(this.each(movedir));
-//		res.push(this.touch());
+
 		test.result(res.join("\r\n"));
 	}
 };
