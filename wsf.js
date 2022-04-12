@@ -6,19 +6,62 @@
  * see https://opensource.org/licenses/MIT
  *
  */
-var WindowsJScript = function(){ this.init(); return this; };
+
+//----------------------------------------------
+// WindowsJScript
+//----------------------------------------------
+var WindowsJScript = function(){ return this; };
 WindowsJScript.prototype = {
 
-	execfile : null,
+	multiple : false,
 	args : [],
+	info : null,
 	init : function(){
-		this.execfile = WScript.ScriptFullName;
+		try{
+			this.initwsf();
+		} catch(e) {
+			this.inithta();
+		}
+		js.log.init();
+	},
+	inithta : function(){
+		// HTA warn avoid.
+		WScript = null;
+		this.info = this.path.info(location.pathname);
+		if(location.href.match(/.+\?.*/)){
+			this.args = location.href.replace(/^.*\?/, "").split(this.cmd.htaargsep);
+		}
+	},
+	initwsf : function(){
+		this.info = this.path.info(WScript.ScriptFullName);
 		for(var i=0; i<WScript.Arguments.length; i++){
 			this.args.push(WScript.Arguments.Item(i));
 		}
+		if(!this.multiple && this.cmd.executed()){
+			this.quit("duplicate execute.");
+		}
 	},
-	quit : function(){ WScript.Quit(); },
-	echo : function(arg){ WScript.Echo(arg); },
+	quit : function(txt){
+		var msg = [];
+		msg.push("[js.quit]");
+		if(this.isstring(txt)) msg.push("[cause] "+txt);
+		msg.push(this.info.fullpath);
+		this.echo(msg.join("\r\n"));
+		this.log.add(msg.join("\r\n"));
+		try{
+			WScript.Quit();
+		}catch(e){
+		    window.close();
+		    throw new Error('[js.quit]' + e);
+		}
+	},
+	echo : function(arg){
+		try{
+			WScript.Echo(arg);
+		}catch(e){
+			alert(arg);
+		}
+	},
 
 	isundefined   : function(argv){ return argv === undefined; },
 	isnull        : function(argv){ return argv === null; },
@@ -40,19 +83,6 @@ WindowsJScript.prototype = {
 
 	istrue  : function(val){ return (this.isboolean(val) && !!val); },
 	isfalse : function(val){ return (this.isboolean(val) && !val); },
-
-	executed : function(){
-		var process = GetObject("WinMgmts:").ExecQuery("Select * From Win32_Process");
-		var ret = false;
-
-		for(var e = new Enumerator(process); !e.atEnd(); e.moveNext()){
-			if(e.item().ExecutablePath === WScript.FullName && String(e.item().CommandLine).indexOf(WScript.ScriptFullName) > -1){
-				ret = true;
-				break;
-			}
-		}
-		return ret;
-	},
 
 	size : function(obj){
 		if(!this.isobject(obj)) return false;
@@ -89,18 +119,13 @@ WindowsJScript.prototype = {
 				var strcurr = String(comparearr[cursor]);
 				var strprev = cursor > 0 ? String(comparearr[cursor - 1]) : strcurr;
 				var strkey = String(key);
-				// 挿入位置が見つかったら終わる
 				if(strprev < strkey && strcurr >= strkey){
 					break;
 				}
-				// ピボットが1より大きいなら中間値を取得
 				if(pivot > 1) pivot = Math.floor(pivot / 2);
-				// ピボットが0になったら1（隣）を指定
 				if(pivot < 1) pivot = 1;
-				// カーソル位置を移動
 				cursor = cursor + (strcurr < strkey) ? pivot : - pivot;
 			}
-			// カーソル位置に値を追加
 			keyarr.splice(cursor, 0, key);
 			valarr.splice(cursor, 0, obj[key]);
 		}
@@ -163,13 +188,21 @@ var js = new WindowsJScript();
 //----------------------------------------------
 var WrapCommand = function(){};
 WrapCommand.prototype = {
+	htaargsep : ",",
 	HASHTYPE : {
 		MD5    : "MD5",
 		SHA1   : "SHA1",
 		SHA256 : "SHA256"
 	},
+	shell : function(name){
+		try{
+			return WScript.CreateObject('WScript.Shell');
+		}catch(e){
+			return new ActiveXObject('WScript.Shell');
+		}
+	},
 	exec : function(cmd){
-		var sh = WScript.CreateObject('WScript.Shell');
+		var sh = this.shell();
 		return sh.Exec(cmd);
 	},
 	hash : function(path, type){
@@ -184,19 +217,85 @@ WrapCommand.prototype = {
 		var cmd = js.str.format('certutil -hashfile "${0}" ${1}', path, type);
 		return js.cmd.exec(cmd);
 	},
+	hta : function(path, args){
+		var arg = js.isobject(args) ? "?" + args.join(this.htaargsep) : "";
+		var cmd = js.str.format('mshta.exe "${0}${1}"', js.path.info(path).fullpath, arg);
+		return this.shell().run(cmd);
+	},
 	createshortcut : function(frompath, topath, opt){
-		var sh = WScript.CreateObject('WScript.Shell');
+		var sh = this.shell();
 		var file = sh.CreateShortcut(topath);
 		var prefix = String(frompath).match(/\.lnk$/) ? "file:/" : "";
 		file.TargetPath = prefix + String(frompath);
 		file.Save();
 	},
-	env : function(name){
-		var sh = WScript.CreateObject('WScript.Shell');
-		return sh.ExpandEnvironmentStrings(name);
+	executed : function(){
+		var windir = this.env("SystemRoot", "Process");
+		var wmiObj = GetObject("WinMgmts:Root\\Cimv2");
+		var processes = wmiObj.ExecQuery("Select * From Win32_Process");
+		var penum = new Enumerator(processes);
+		var cnt = 0;
+		var cmdnm = js.path.join(windir, "system32", "wscript.exe").toString();
+		for(; !penum.atEnd(); penum.moveNext()){
+			var cmdln = penum.item().CommandLine;
+			if(cmdln != null && cmdln.toLowerCase().indexOf(cmdnm.toLowerCase()) == 1 && cmdln.indexOf(js.info.filename) > 0 ){
+				cnt++;
+			}
+		}
+		return cnt > 1;
+	},
+	env : function(name, env){
+		if(js.isundefined(env)){
+			return this.shell().ExpandEnvironmentStrings(name);
+		}
+		var sh = this.shell().Environment("Process");
+		return sh(name);
 	}
 };
 WindowsJScript.prototype.cmd = new WrapCommand();
+
+//----------------------------------------------
+// WindowsJScript.dialog
+//----------------------------------------------
+var WrapDialog = function(){ return this; };
+WrapDialog.prototype = {
+	BUTTON : {
+		OK                : 0,
+		OK_CANCEL         : 1,
+		STOP_RETRY_IGNORE : 2,
+		YES_NO_CANCEL     : 3,
+		YES_NO            : 4,
+		RETRY_CANCEL      : 5
+	},
+	ICON : {
+		NONE        :  0,
+		STOP        : 16,
+		QUESTION    : 32,
+		EXCLAMAITON : 48,
+		INFO        : 64
+	},
+	CHOOSE : {
+		OK     :  1,
+		CANCEL :  2,
+		STOP   :  3,
+		RETRY  :  4,
+		IGNORE :  5,
+		YES    :  6,
+		NO     :  7,
+		NONE   : -1
+	},
+	popup : function(opt){
+		if(!js.isobject(opt)) return false;
+		if(js.isnullorempty(opt.txt))   opt.txt   = "js.dialog text";
+		if(js.isnullorempty(opt.sec))   opt.sec   = 0;
+		if(js.isnullorempty(opt.title)) opt.title = "js.dialog title";
+		if(js.isnullorempty(opt.btn))   opt.btn   = this.BUTTON.OK;
+		if(js.isnullorempty(opt.icon))  opt.icon  = this.ICON.NONE;
+		var sh = new ActiveXObject( "WScript.Shell" );
+		return sh.Popup(opt.txt, opt.sec, opt.title, opt.btn + opt.icon);
+	}
+};
+WindowsJScript.prototype.dialog = new WrapDialog();
 
 //----------------------------------------------
 // WindowsJScript.msg
@@ -408,6 +507,7 @@ WrapPath.prototype = {
 			filename : this.fso.GetFileName(path),
 			basename : this.fso.GetBaseName(path),
 			extname  : this.fso.GetExtensionName(path),
+			parent   : this.parent(path),
 			isdir    : this.isdir(path),
 			isfile   : this.isfile(path)
 		};
@@ -455,7 +555,7 @@ WrapPath.prototype = {
 			var dir = this.fso.GetFolder(path);
 			if(opt.file){
 				for (var fp = new Enumerator(dir.Files); !fp.atEnd(); fp.moveNext()) {
-					if(opt.filter && !String(fp.item()).match(opt.filter)){
+					if(opt.filterfile && !String(fp.item()).match(opt.filterfile)){
 						continue;
 					}
 					rtn.push.apply(rtn, this.each(fp.item(), func, opt));
@@ -464,13 +564,17 @@ WrapPath.prototype = {
 			if(js.isnumber(opt.nest) && opt.curr >= opt.nest) return rtn;
 			opt.curr++;
 			for (var fp = new Enumerator(dir.SubFolders); !fp.atEnd(); fp.moveNext()) {
-				if(opt.filter && !String(fp.item()).match(opt.filter)){
+				if(opt.filterdir && !String(fp.item()).match(opt.filterdir)){
 					continue;
 				}
 				rtn.push.apply(rtn, this.each(fp.item(), func, opt));
 			}
 		}
 		return rtn;
+	},
+	extchange : function(path, ext){
+		if(!js.path.isfile(path)) return path;
+		return path.replace(/\.[^\.]+$/, ext);
 	},
 	remove: function(path){ return this.isdir(path) ? this.rmdir(path) : this.isfile(path) ? this.rm(path) : false; },
 	copy  : function(from, to){ return this.isdir(from) ? this.cpdir(from, to) : this.isfile(from) ? this.cp(from, to) : false; },
@@ -494,11 +598,10 @@ WrapPath.prototype = {
 	join : function(){
 		var self = this;
 		var args = [].slice.call(arguments);
-		if(js.isobject(args[0])){
+		if(args.length == 1 && js.isobject(args[0])){
 			args = args[0];
 		}
-//		var path = args.shift();
-		var path = this.info(args.shift()).fullpath;
+		var path = this.info(String(args.shift())).fullpath;
 		js.each(args, function(i, val){
 			path = self.fso.BuildPath(path, val);
 		});
@@ -517,7 +620,7 @@ WindowsJScript.prototype.path = new WrapPath();
 //----------------------------------------------
 // WindowsJScript.log
 //----------------------------------------------
-var WrapLog = function(state, path){ this.init(state, path); return this; };
+var WrapLog = function(){ return this; };
 WrapLog.prototype = {
 	state : {
 		enable : false,
@@ -541,11 +644,43 @@ WrapLog.prototype = {
 		this.add("[js.log.off] stop log.")
 		this.state.enable = false;
 	},
+	dologging :function(path){
+		var txt = [];
+			txt.push("[js.log] log folder is not exist.");
+			txt.push("${0}");
+			txt.push("");
+			txt.push("create folder or no logging.");
+			txt.push("");
+			txt.push("[YES] create folder.");
+			txt.push("[NO] no logging.");
+			txt.push("[CANCEL] quit.");
+		var opt = {
+			title: "[js.log] confirm execute.",
+			txt  : js.str.format(txt.join("\r\n"), path),
+			btn  : js.dialog.BUTTON.YES_NO_CANCEL,
+			icon : js.dialog.ICON.INFO
+		}
+		var flg = js.dialog.popup(opt);
+		if(flg == js.dialog.CHOOSE.YES){
+			js.path.mkdir(path);
+			return true;
+		}
+		if(flg == js.dialog.CHOOSE.CANCEL){
+			js.quit("cancel selected. (log folder not found.)");
+		}
+		return false;
+	},
 	ready : function(){
- 		this.state.ready = js.path.isdir(js.path.parent(this.path)) ? true : false;
+		var logdir = js.path.parent(this.path);
+		if(js.path.isdir(logdir)){
+	 		this.state.ready = true;
+		} else {
+	 		this.state.ready = this.dologging(logdir);
+		}
+ 		return this.state.ready;
 	},
 	init : function(state, path){
-		var currpath = (this.path) ? this.path : String(WScript.ScriptFullName).replace(/\.[^\.]+$/, js.str.format("_${0}.log", js.date.now("YYYYMMDDhhmmss")));
+		var currpath = (this.path) ? this.path : js.path.extchange(js.info.fullpath, js.str.format("_${0}.log", js.date.now("YYYYMMDDhhmmss")));
  		this.path = (path) ? path : currpath;
  		if(js.isobject(state)){
 			js.extend(this.state, state);
@@ -573,6 +708,7 @@ WindowsJScript.prototype.Logger = WrapLog;
 //----------------------------------------------
 var WrapBook = function(){ this.init(); return this; };
 WrapBook.prototype = {
+	extregex : /\.xls[xms]?$/,
 	excel : null,
 	maxrow : function(sheet){ return sheet.Cells(1, 1).SpecialCells(11).Row },
 	maxcol : function(sheet){ return sheet.Cells(1, 1).SpecialCells(11).Column },
@@ -607,10 +743,26 @@ WrapBook.prototype = {
 		if(!js.path.isfile(path)){
 			return false;
 		}
-		if(!String(path).match(/\.xls[ms]?$/)){
+		if(!String(path).match(this.extregex)){
 			return false;
 		}
 		return true;
+	},
+	each : function(book, func, opt){
+		if(js.isundefined(opt)) opt = {};
+		var ret = [];
+		for(var id = 1; id <= book.WorkSheets.Count; id++){
+			var sheet = book.WorkSheets(id);
+			if(!js.isundefined(opt.filter) && String(sheet.Name).match(opt.filter)){
+				ret.push(func(id, sheet));
+			}
+		}
+		return ret;
+	},
+	bookexeption : function(name, path, e){
+		var msg = js.str.format("[${3}] error(${1}:${2}). path:${0}", path, (e.number & 0xFFFF), e.message, name);
+		js.echo(msg);
+		js.log.err(msg);
 	},
 	read : function(path, func){
 		if(!this.isbook) return false;
@@ -619,7 +771,7 @@ WrapBook.prototype = {
 			book = this.excel.Workbooks.Open(path);
 			return func(book);
 		} catch(e) {
-			js.echo(js.str.format("[js.book.read] error(${1}:$2). path:${0}, ", path, (e.number & 0xFFFF), e.message));
+			this.bookexeption("js.book.read", path, e);
 		} finally {
 			if(!js.isnull(book)) {
 				book.Close(false);
@@ -627,7 +779,25 @@ WrapBook.prototype = {
 			}
 		}
 	},
-	write : function(path, func){
+	update : function(path, func){
+		if(!this.isbook) return false;
+		var book = null;
+		try{
+			book = this.excel.Workbooks.Open(path);
+			func(book);
+			book.CheckCompatibility = false;
+			this.excel.DisplayAlerts = false;
+			book.SaveAs(path);
+		} catch(e) {
+			this.bookexeption("js.book.update", path, e);
+		} finally {
+			if(!js.isnull(book)) {
+				book.Close(false);
+				book = null;
+			}
+		}
+	},
+	create : function(path, func){
 		if(!this.isbook) return false;
 		this.excel.Visible = false;
 		var book = null;
@@ -638,7 +808,7 @@ WrapBook.prototype = {
 			this.excel.DisplayAlerts = false;
 			book.SaveAs(path);
 		} catch(e) {
-			js.echo(js.str.format("[js.book.write] error(${1}:$2). path:${0}, ", path, (e.number & 0xFFFF), e.message));
+			this.bookexeption("js.book.create", path, e);
 		} finally {
 			if(!js.isnull(book)) {
 				this.excel.CutCopyMode = false;
@@ -649,3 +819,5 @@ WrapBook.prototype = {
 	}
 };
 WindowsJScript.prototype.book = new WrapBook();
+
+js.init();

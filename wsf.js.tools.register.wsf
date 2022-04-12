@@ -43,7 +43,7 @@ RegistSendTo.prototype = {
 				var scpath = js.path.join(topath, js.path.info(path).filename.replace(/(\.[^\.]+$)/, ".lnk"));
 				js.cmd.createshortcut(path, scpath);
 				js.log.info("[RegistSendTo.exec]:create->" + scpath);
-			}, {filter:/\.wsf$/});
+			}, {filterfile:/\.wsf$/});
 			js.log.info("[RegistSendTo.exec]:done.");
 		} else {
 			js.log.err("[RegistSendTo.exec]:fail.");

@@ -1,0 +1,15 @@
+<job id="wsf.hta.sample_run_hta">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.hta.sample_run_hta
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+js.cmd.hta("sample_get_arg.hta", [ "param1", "param2", js.info.parent])
+	</Script>
+</job>

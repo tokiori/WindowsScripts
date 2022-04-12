@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<!--
+edge相当の機能が使いたい場合（jQuery上位バージョン等）
+<meta http-equiv="x-ua-compatible" content="ie=edge">
+-->
+<meta http-equiv="X-UA-Compatible" content="IE=9" />
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.19/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.19/themes/blitzer/jquery-ui.css">
+<!--
+	[themes]
+	redmond
+	black-tie
+	cupertino
+	dark-hive
+	eggplant
+	overcast
+	pepper-grinder
+	smoothness
+	...
+-->
+
+<meta charset="utf-8">
+<title>HTA実行サンプル（引数取得）</title>
+<HTA:APPLICATION ID="thishta" />
+<script src="../wsf.js"></script>
+<script>
+function restoreArgs() {
+	var str = location.href.toString();
+	if (str.indexOf("?") < 0) return null;
+	return str.split("?", 2)[1].replace(/::/g, "\\").split(":*:");
+}
+$(function(){
+
+	info = {};
+	info.href = location.href;
+	if(js.args.length > 0){
+		var arr = js.each(js.args, function(key, val){
+			return js.str.format("[${0}] ${1}", key, val);
+		});
+		info.args = arr.join("<br>");
+	} else {
+		info.args = "＜引数なし＞";
+	}
+	info.pathname = location.pathname;
+	$("#txt_path").val(location.pathname);
+
+	var $dl = $("<dl></dl>");
+	js.each(info, function(key, val){
+		var $dt = $("<dt></dt>");
+		$dt.html(key);
+		var $dd = $("<dd></dd>");
+		$dd.html(val);
+		$dl.append($dt);
+		$dl.append($dd);
+	});
+	$('#viewer').append($dl);
+	$('#btn_close').click(function(){
+		window.close();
+	});
+	$("#btn_path").click(function(){
+		var path = $("#txt_path").val();
+		var txt = js.str.format("[ファイル存在${0}] ", js.path.isfile(path) ? "あり" : "なし");
+		$("#path_res").html(txt + path);
+	});
+});
+</script>
+<style>
+#viewer dt{
+	font-weight:bold;
+}
+h2{
+	border-bottom:1px solid #ccccff;
+}
+footer{
+	text-align:center;
+	line-height:2em;
+}
+</style>
+</head>
+<body>
+	<div>
+		<h2>引数の処理について</h2>
+		<p>
+			「js.cmd.hta(path, [引数配列(任意)])」で呼び出された場合は、「js.arg」に渡された引数が格納される。<br>
+			※引数配列をカンマ区切りでURLパラメータ形式に変換し実行する。取得時は「?」以降のURLパラメータをカンマ区切りで取得する。
+		</p>
+		<p id="viewer"></p>
+	</div>
+	<div>
+		<h2>ファイル存在確認</h2>
+		<p>テキストボックスに入力したパスがファイルとして存在しているか確認する。（「js.path.isfile(path)」での確認）</p>
+		<input type="text" id="txt_path" style="width:80%;">
+		<button id="btn_path">check</button>
+		<p id="path_res"></p>
+	</div>
+	<br>
+	<div style="text-align:right;">
+		<button id="btn_close">close</button>
+	</div>
+	<br>
+	<footer style="border-top:1px solid #cccccc; background-color:#eeeeee;">
+		<small><a href="https://github.com/tokiori/WindowsScripts" style="padding-right:1em;">WindowsScripts(github project).</a> &copy; 2022 tokiori.</small>
+	</footer>
+</body>
+</html>

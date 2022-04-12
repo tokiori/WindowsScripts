@@ -1,0 +1,86 @@
+<job id="wsf.tools.sendto.allSheetsFocusA1">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.tools.sendto.allSheetsFocusA1
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+var AllSheetsFocusA1 = function(){};
+AllSheetsFocusA1.prototype = {
+	doreplace : false,
+	cnt : 0,
+	confirm : function(){
+		var txt = [];
+			txt.push("A1 focus of all worksheets and save file.");
+			txt.push("[" + js.each(js.args, function(key, val){ return val; }).join("]\r\n[") + "]");
+			txt.push("");
+			txt.push("replace files?");
+			txt.push("");
+			txt.push("[YES] replace file.");
+			txt.push("[NO] don't replace file. save new file.");
+			txt.push("       addname:_a1focus_YYYYMMDDhhmmss.");
+			txt.push("[CANCEL] quit.");
+		var opt = {
+			title: "[wsf.tools.sendto.allSheetsFocusA1] confirm execute.",
+			txt  : txt.join("\r\n"),
+			btn  : js.dialog.BUTTON.YES_NO_CANCEL,
+			icon : js.dialog.ICON.INFO
+		}
+		var flg = js.dialog.popup(opt);
+		if(flg == js.dialog.CHOOSE.YES){
+			this.doreplace = true;
+			return true;
+		}
+		if(flg == js.dialog.CHOOSE.CANCEL){
+			js.quit();
+		}
+		return false;
+	},
+	focus : function(path, a1){
+		js.book.update(path, function(book){
+			for(var i = 1; i <= book.WorkSheets.Count; i++){
+				book.Worksheets(i).Activate();
+				book.Worksheets(i).Range(a1).Select;
+			}
+			book.Worksheets(1).Activate();
+			book.WorkSheets(1).Select();
+		});
+	},
+	exec : function(path){
+		var self = this;
+		var suffix = "_a1focus" + js.date.now("_YYYYMMDDhhmmss");
+		var ret = [];
+		js.path.each(path, function(filepath){
+			ret.push(filepath);
+			var execpath = filepath;
+			if(!self.doreplace){
+				var savepath = String(execpath).replace(/(\.[^\.]+)$/, suffix + "$1");
+				var saveinfo = js.path.info(savepath);
+				js.path.mkdir(saveinfo.parent);
+				js.path.cp(execpath, savepath);
+				execpath = savepath;
+			}
+			self.focus(execpath, "A1");
+			self.cnt++;
+		}, {filterfile : js.book.extregex});
+		return ret.join("\r\n");
+	}
+};
+var a1focus =  new AllSheetsFocusA1();
+
+a1focus.confirm();
+var ret = [];
+js.each(js.args, function(i, path){
+	ret.push(a1focus.exec(path));
+});
+ret.unshift("update file count : " + a1focus.cnt);
+ret.unshift("[wsf.tools.sendto.allSheetsFocusA1] complete.");
+js.echo(ret.join("\r\n"));
+
+	</Script>
+</job>
