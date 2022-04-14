@@ -188,7 +188,7 @@ var js = new WindowsJScript();
 //----------------------------------------------
 var WrapCommand = function(){};
 WrapCommand.prototype = {
-	htaargsep : ",",
+	htaargsep : "|||",
 	HASHTYPE : {
 		MD5    : "MD5",
 		SHA1   : "SHA1",
@@ -217,8 +217,12 @@ WrapCommand.prototype = {
 		var cmd = js.str.format('certutil -hashfile "${0}" ${1}', path, type);
 		return js.cmd.exec(cmd);
 	},
-	hta : function(path, args){
-		var arg = js.isobject(args) ? "?" + args.join(this.htaargsep) : "";
+	// this.hta(path, arg...)
+	hta : function(){
+		var arr = [].slice.call(arguments);
+		if(arr.length == 0) return false;
+		var path = arr.shift();
+		var arg = (arr.length > 0) ? "?" + arr.join(this.htaargsep) : "";
 		var cmd = js.str.format('mshta.exe "${0}${1}"', js.path.info(path).fullpath, arg);
 		return this.shell().run(cmd);
 	},

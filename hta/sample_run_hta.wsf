@@ -10,6 +10,6 @@
  *
  */
 
-js.cmd.hta("sample_get_arg.hta", [ "param1", "param2", js.info.parent])
+js.cmd.hta("sample_get_arg.hta", "param1", "param2", js.info.parent)
 	</Script>
 </job>

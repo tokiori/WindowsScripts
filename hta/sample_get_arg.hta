@@ -50,8 +50,9 @@ $(function(){
 	var $dl = $("<dl></dl>");
 	js.each(info, function(key, val){
 		var $dt = $("<dt></dt>");
-		$dt.html(key);
+		$dt.text(key);
 		var $dd = $("<dd></dd>");
+//		$dd.text(val);
 		$dd.html(val);
 		$dl.append($dt);
 		$dl.append($dd);
