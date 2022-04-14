@@ -32,6 +32,7 @@ WSFで使用頻度が高い（環境が変わってもよく再利用する）�
 - wsf.js.test.wsf
   - 「wsf.js」の簡易的な機能確認スクリプト（サンプル）。
   - 実行すると「wsf.js.test_[YYYYMMDDhhmmss].wsf」の実行ログが作成される。
+  - BoxやOneDrive等の同期するクラウドストレージ上で実行すると、ブックの上書き等で競合エラーとなる可能性があるためローカル実行推奨。
 
 - tools.sendtoフォルダ
   - 「wsf.js」を利用したwindowsの送るメニューに登録するスクリプト。
@@ -64,9 +65,13 @@ WSFで使用頻度が高い（環境が変わってもよく再利用する）�
 - js.book
   - ExcelAppをWrapしたいもの。
 
+- js.hta
+  - HTA呼び出し機能。呼び出し時にURLパラメータライクに引数を渡す。
+  - 「js.hta.exec(path,[({arg}|[arg]|arg...)])」でHTAを実行する。
+  - HTAソース側で「wsf.js」を参照することで「js.args」、「js.hta.args」に取得引数を格納する。
+
 - js.cmd
   - Windowsコマンド関連を集約したもの。
-  - 「js.cmd.hta()」でHTAを実行する。（引数渡し可能）
 
 ## License 
 * Copyright (c) 2022 tokiori

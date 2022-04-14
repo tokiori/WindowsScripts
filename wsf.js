@@ -28,9 +28,10 @@ WindowsJScript.prototype = {
 		// HTA warn avoid.
 		WScript = null;
 		this.info = this.path.info(location.pathname);
-		if(location.href.match(/.+\?.*/)){
-			this.args = location.href.replace(/^.*\?/, "").split(this.cmd.htaargsep);
-		}
+		this.args = this.hta.href2arg(location.href);
+//		if(location.href.match(/.+\?.*/)){
+//			this.args = location.href.replace(/^.*\?/, "").split(this.cmd.htaargsep);
+//		}
 	},
 	initwsf : function(){
 		this.info = this.path.info(WScript.ScriptFullName);
@@ -71,6 +72,7 @@ WindowsJScript.prototype = {
 	isstring      : function(argv){ return typeof argv === 'string'; },
 	isboolean     : function(argv){ return typeof argv === 'boolean'; },
 	issymbol      : function(argv){ return typeof argv === 'symbol'; },
+	isarray       : function(argv){ return Object.prototype.toString.call(argv) === '[object Array]'; },
 	isobject      : function(argv){ return typeof argv === 'object' && !this.isnull(argv); },
 	isnullorempty : function(argv){
 		if(this.isnull(argv)) return true;
@@ -184,11 +186,70 @@ WindowsJScript.prototype = {
 var js = new WindowsJScript();
 
 //----------------------------------------------
+// WindowsJScript.hta
+//----------------------------------------------
+var WrapHtaCommand = function(){};
+WrapHtaCommand.prototype = {
+//	sep : "|||",
+	sep : "&",
+	args : {},
+	arg2str : function(arg){
+		if(arg.length == 1 && js.isobject(arg[0])) arg = arg[0];
+		var strarr = js.each(arg, function(i, val){
+			return js.str.format("arg${0}=${1}",i, val);
+		});
+		return (strarr.length > 0) ? "?" + strarr.join(this.sep) : "";
+	},
+	href2arg : function(href){
+		if(!href.match(/.+\?.*/)){
+			return [];
+		}
+		return this.str2arg(href.replace(/^.*\?/, ""));
+	},
+	str2arg : function(argstr){
+		var argarr = argstr.split(this.sep);
+		var arr = [];
+		for(var i = 0; i < argarr.length; i++){
+			var param = argarr[i].split("=");
+			var val = js.isundefined(param[1]) ? "" : param[1];
+			this.args[param[0]] = val;
+			arr.push(val);
+		}
+		return arr;
+	},
+	escape : function(str){
+		return str
+			.replace(/&/g, "&amp;")
+			.replace(/"/g, "&quot;")
+			.replace(/'/g, "&#039;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/\n/g, "<br>");
+	},
+	exec : function(){
+		var arg = [].slice.call(arguments);
+		if(arg.length == 0){
+			js.quit("[js.cmd.hta] empty arguments.");
+			return false;
+		};
+		var htapath = js.path.info(arg.shift()).fullpath;
+		var argstr = this.arg2str(arg);
+		if(!js.path.isfile(htapath)){
+			js.quit(["[js.cmd.hta] hta file not found.", htapath].join("\r\n"));
+			return false;
+		}
+		var cmd = js.str.format('mshta.exe "${0}${1}"', htapath, argstr);
+		return js.cmd.exec(cmd);
+//		return js.cmd.shell().run(cmd);
+	}
+};
+WindowsJScript.prototype.hta = new WrapHtaCommand();
+
+//----------------------------------------------
 // WindowsJScript.cmd
 //----------------------------------------------
 var WrapCommand = function(){};
 WrapCommand.prototype = {
-	htaargsep : "|||",
 	HASHTYPE : {
 		MD5    : "MD5",
 		SHA1   : "SHA1",
@@ -216,15 +277,6 @@ WrapCommand.prototype = {
 		}
 		var cmd = js.str.format('certutil -hashfile "${0}" ${1}', path, type);
 		return js.cmd.exec(cmd);
-	},
-	// this.hta(path, arg...)
-	hta : function(){
-		var arr = [].slice.call(arguments);
-		if(arr.length == 0) return false;
-		var path = arr.shift();
-		var arg = (arr.length > 0) ? "?" + arr.join(this.htaargsep) : "";
-		var cmd = js.str.format('mshta.exe "${0}${1}"', js.path.info(path).fullpath, arg);
-		return this.shell().run(cmd);
 	},
 	createshortcut : function(frompath, topath, opt){
 		var sh = this.shell();
