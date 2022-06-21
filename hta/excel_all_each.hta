@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=9" />
+<!--
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+-->
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.19/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.19/themes/hot-sneaks/jquery-ui.css">
+
+<meta charset="utf-8">
+<title>Excelブック全シート処理</title>
+<HTA:APPLICATION ID="thishta" />
+<script src="../wsf.js"></script>
+<script>
+
+var width = 900;
+var height = 600;
+window.resizeTo(width, height);
+//window.moveTo(((screen.width - width) / 2), ((screen.height - height) / 2));
+
+var AllSheetExec = function(){};
+AllSheetExec.prototype = {
+	lastpath : "",
+	pathid : "targetpath",
+	valid : false,
+	operate : {
+		a1focus : true,
+		x100pct : false,
+	},
+	$log : null,
+	init : function(){
+		this.$log = $("#resultview");
+	},
+	log : function(txt){
+		this.$log.append(js.str.format("[${0}] ${1}\n", js.date.now("YYYY/MM/DD hh:mm:ss"), txt));
+	},
+	invalid : "",
+	validate : function(){
+		this.operate.a1focus = $("#a1focus").prop("checked");
+		this.operate.x100pct = $("#x100pct").prop("checked");
+		if(this.operate.a1focus || this.operate.x100pct){
+			this.valid = true;
+			return true;
+		}
+		this.invalid = "[validate] Please select one or more functions.";
+		return false;
+	},
+	eachsheet : function(book, excel, func){
+		ret = [];
+		for(var i = 1; i <= book.WorkSheets.Count; i++){
+			var sheet = book.Worksheets(i);
+			ret.push(func(sheet));
+		}
+		return ret;
+	},
+//	view : function(book, excel, mode){
+//		return this.eachsheet(book, excel, function(sheet){
+//			sheet.Activate();
+//			'改ページプレビュー
+//			excel.ActiveWindow.View = 2 'xlPageBreakPreview
+//			'標準
+//			excel.ActiveWindow.View = 1 'xlNormalView
+//		});
+//	},
+	focus : function(book, excel, a1){
+		for(var i = 1; i <= book.WorkSheets.Count; i++){
+			book.Worksheets(i).Activate();
+			book.Worksheets(i).Range(a1).Select;
+		}
+	},
+	xnumpct : function(book, excel, num){
+		for(var i = 1; i <= book.WorkSheets.Count; i++){
+			book.Worksheets(i).Activate();
+			excel.ActiveWindow.Zoom = num;
+		}
+	},
+	a1focus : function(book, excel, path){
+		this.log(js.str.format("[a1focus] ${0}", String(path)));
+		this.focus(book, excel, "A1");
+	},
+	x100pct : function(book, excel, path){
+		this.log(js.str.format("[x100pct] ${0}", String(path)));
+		this.xnumpct(book, excel, 100);
+	},
+	update : function(path){
+		var self = this;
+		js.book.update(path, function(book, excel){
+			if(self.operate.a1focus) self.a1focus(book, excel, path);
+			if(self.operate.x100pct) self.x100pct(book, excel, path);
+			book.Worksheets(1).Activate();
+			book.WorkSheets(1).Select();
+			return true;
+		});
+	},
+	exec : function(args){
+		try{
+			var self = this;
+			this.log("[exec] start.");
+			if(!this.validate()){
+			    this.log(this.invalid);
+				return false;
+			}
+			js.each(args, function(i, arg){
+				js.path.each(arg, function(path){
+					self.update(path);
+					self.lastpath = path;
+				}, {filterfile : js.book.extregex});
+			});
+			this.log("[exec] complete.");
+			return true;
+		} catch(e){
+			js.echo(e);
+			this.log(e);
+			return false;
+		} finally {
+			js.echo("[exec] finish.");
+			this.log("[exec] finish.");
+		}
+	}
+};
+var ase = new AllSheetExec();
+
+$(function(){
+	$.fn.tabctrl = function(){
+		var $target = $(this);
+		// ここでタブ内容の保持をしているので、以降タブ周りを追加削除してはいけない
+		var $tabselector = $target.children(".tab_selector").children(".tab_idx");
+		var $tabcontent = $target.children(".tab_viewer").children(".tab_content");
+		$target.children(".tab_selector").children(".tab_idx").click(function() {
+			var index = $tabselector.index(this);
+			$tabcontent.removeClass('active');
+			$tabselector.removeClass('active');
+			$tabcontent.eq(index).addClass('active');
+			$(this).addClass('active');
+		});
+		return this;
+	};
+	$("#contents_area").tabctrl();
+
+	ase.init();
+	var icon = {
+		document : "ui-icon-document",
+		folder   : "ui-icon-folder-collapsed",
+		ignore   : "ui-icon-closethick"
+	};
+	var targetclass = "targetpath";
+	js.each(js.args, function(key, val){
+		var id = ase.pathid + key;
+
+		$chkbox = $("<input type='checkbox'>").attr('id', id);
+		$icon = $("<span></span>").addClass(['ui-icon', 'x150pct'].join(" "));
+		$lblpath = $("<label></label>").attr('for', id).text(val);
+
+		if(js.path.isfile(val) && js.book.isbook(val)){
+			$icon.addClass(icon.document);
+			$chkbox.prop("checked", true);
+		} else if(js.path.isdir(val)){
+			$icon.addClass(icon.folder);
+			$chkbox.prop("checked", true);
+		} else {
+			$icon.addClass(icon.ignore);
+			$chkbox.prop("disabled", true);
+			$lblpath.addClass("textthrough");
+		}
+
+		$line = $("<div class='" + targetclass + "'></div>").addClass("execpath");
+		$line.append($chkbox);
+		$line.append($icon);
+		$line.append($lblpath);
+		$("#argview").append($line);
+	});
+
+	$('#btn_exec').click(function(){
+		var arr = [];
+		$("."+targetclass).children("input[type=checkbox]").each(function(e){
+			$this = $(this);
+			if(!!$this.prop("checked")){
+				var id = $this.attr("id").replace(new RegExp(ase.pathid), "");
+				arr.push(js.args[id]);
+			}
+		});
+		if(!ase.validate()){
+			js.echo(ase.invalid);
+			return false;
+		}
+		$('#resultlog').trigger('click');
+		if(ase.exec(arr)){
+			$("#savepath").val(js.path.join(js.path.info(ase.lastpath).parent, js.info.basename + ".log"));
+		}
+	});
+
+	$('#btn_save').click(function(){
+		var pathinfo = js.path.info($("#savepath").val());
+		if(!js.path.isdir(pathinfo.parent)){
+			js.echo("存在する保存対象フォルダを指定してください。");
+			return false;
+		}
+		var txt = $("#resultview").val();
+		js.path.writefile(pathinfo.fullpath, $("#resultview").val());
+		js.echo("実行ログを保存しました。<br>" + pathinfo.fullpath);
+	});
+});
+</script>
+<style>
+body {
+	background-color:#ffffff;
+	color: #333333;
+	line-height:1.5em;
+	font-size:0.9em;
+	margin:0;
+	padding:0;
+	transform-origin: top left;
+	transform: scale(1.0);
+	width: 100%; 
+}
+section{
+	padding:0 0.5em 0.5em;
+}
+footer{
+	text-align:center;
+	line-height:1.5em;
+	background-color:#eeeeee;
+}
+h1,h2,h3,h4,h5,h6{
+	padding:0 0.5em;
+	font-size:1em;
+	margin:0.5em 0 0.5em 0;
+}
+p,ul,dl{
+	padding:0;
+	font-size:1em;
+	margin:0 0 0.4em 0;
+}
+h1{
+	font-size:1.0em;
+}
+h2{
+	font-size:1.2em;
+	border-bottom:1px solid #9999ff;
+}
+.codeview{
+	font-size:0.9em;
+	font-family:monospace, sans-serif;
+	padding:0.2em;
+	background-color:#f7f7f7;
+	border:1px solid #dddddd;
+	word-break: break-all;
+}
+li{
+	margin-left:2em;
+}
+#viewer dt{
+	font-weight:bold;
+	margin-top:0.4em;
+}
+#viewer dd{
+	margin-left:1em;
+}
+.execpath{
+	margin-left:1.5em;
+	text-indent:-1.5em;
+}
+.targetpath{
+	cursor: pointer;
+}
+.textthrough {
+    text-decoration: line-through;
+}
+input[type=checkbox],
+button{
+	surcor:pointer;
+}
+.ui-icon {
+	display : inline-block;
+	margin-right:3px;
+}
+.x150pct {
+  -ms-transform: scale(1.5); /* IE 9 */
+  -webkit-transform: scale(1.5); /* Chrome, Safari, Opera */
+  transform: scale(1.5);
+}
+.x180pct {
+  -ms-transform: scale(1.8); /* IE 9 */
+  -webkit-transform: scale(1.8); /* Chrome, Safari, Opera */
+  transform: scale(1.8);
+}
+.x200pct {
+  -ms-transform: scale(2); /* IE 9 */
+  -webkit-transform: scale(2); /* Chrome, Safari, Opera */
+  transform: scale(2);
+}
+
+.tab_selector {
+	border-bottom:2px solid #07539f;
+	padding:0;
+	margin:0;
+}
+.tab_selector > .tab_idx {
+	padding:3px 0;
+	margin:0;
+	border:0;
+//	display:inline-block;
+	display:table-cell;
+	border-left:1px solid #07539f;
+	background: #f5f7f8;
+	text-align: center;
+	cursor: pointer;
+	width:250px;
+}
+
+.tab_selector > .tab_idx:hover {
+	background-color: #dce1e4;
+}
+.tab_selector > .tab_idx.active {
+	border-left:1px solid #07539f;
+    background:#07539f;
+    color:#fff;
+}
+.tab_viewer > .tab_content { display:none; }
+.tab_viewer > .tab_content.active { display:block; }
+.warn {
+	font-weight:bold;
+	color :orange;
+}
+dl.ddlist.circle > dd{ list-style-type : circle; }
+dl.ddlist.disc > dd{ list-style-type : disc; }
+dl.ddlist > dd{
+	display: list-item;
+	list-style-type : disc;
+	margin-left :20px;
+	padding-left :0;
+}
+
+</style>
+</head>
+<body>
+	<h1>実行対象の全Excelブック全シートを処理する。</h1>
+	<div id="contents_area">
+		<ul class="tab_selector">
+			<li class="tab_idx active" id="confrun">確認実行</li>
+			<li class="tab_idx" id="resultlog">実行ログ</li>
+			<li class="tab_idx" id="about">help/about</li>
+		</ul>
+		<div class="tab_viewer">
+			<div class="tab_content active">
+				<h2>処理実行（ファイル保存）時の注意</h2>
+				<section>
+					<dl class="ddlist disc">
+						<dd class="warn">ファイルを上書きします。実行前に退避する等のバックアップを行ってください。</dd>
+						<dd>各ブックの先頭シートがアクティブになります。</dd>
+						<dd>フォルダが指定された場合はフォルダ内の全ブックが対象となります。</dd>
+					</dl>
+				</section>
+				<h2>処理選択</h2>
+				<section>
+					<input type="checkbox" id="a1focus" checked="checked"><label for="a1focus">A1セル選択</label>
+					<input type="checkbox" id="x100pct"><label for="x100pct">表示倍率100%</label>
+					<button id="btn_exec" style="margin-left:1em;float:right;">処理実行</button>
+				</section>
+				<h2>実行対象確認（チェックオンのみ実行）</h2>
+				<section>
+					<div id="argview" class="codeview"></div>
+					<p>
+						<span class="ui-icon x150pct ui-icon-folder-collapsed"></span>：フォルダ、
+						<span class="ui-icon x150pct ui-icon-document"></span>：Excel形式ファイル、
+						<span class="ui-icon x150pct ui-icon-closethick"></span>：実行対象外ファイル
+					</p>
+				</section>
+			</div>
+			<div class="tab_content">
+				<h2>実行ログ<input type="text" id="savepath" value="" style="width:550px; margin-left:20px;"><button id="btn_save" style="margin-left:20px;">保存</button></h2>
+				<section>
+					<textarea id="resultview" style="width:99%; height:8em; word-break: break-all;" readonly></textarea>
+				</section>
+			</div>
+			<div class="tab_content">
+				<h2>処理実行時の注意</h2>
+				<section>
+					ファイル処理が失敗する場合はローカルの直下等に対象を移動して再度処理を行ってください。
+					<dl class="ddlist disc">
+						<dd>ファイルパスが深い（パス名称が長い）とエラーとなる場合があります。</dd>
+						<dd>ネットワーク上のパス（OneDriveやNAS等）を処理するとエラーとなる場合があります。</dd>
+					</dl>
+				</section>
+				<br>
+				<br>
+				<h2>about</h2>
+				<section style="text-align:center;">
+					<small><a href="https://github.com/tokiori/WindowsScripts" style="padding-right:1em;">WindowsScripts(github project).</a><br>&copy; 2022 tokiori.</small>
+				</section>
+			</div>
+		</div>
+	</div>
+<!--
+	<footer>
+		<small><a href="https://github.com/tokiori/WindowsScripts" style="padding-right:1em;">WindowsScripts(github project).</a> &copy; 2022 tokiori.</small>
+	</footer>
+-->
+</body>
+</html>

@@ -14,6 +14,8 @@ WSFで使用頻度が高い（環境が変わってもよく再利用する）�
   - [YES]ボタン押下で上書き
   - [NO]ボタン押下で同階層に「元ファイル名_a1focus_YYYYMMDDhhmmss」を付与して保存
 
+- [wsf]Excelブック全シート処理.wsf
+  - 対象の全Excelブックに対して処理を行う。（HTA起動）
 
 ## 使い方
 
@@ -38,7 +40,8 @@ WSFで使用頻度が高い（環境が変わってもよく再利用する）�
   - 「wsf.js」を利用したwindowsの送るメニューに登録するスクリプト。
 
 - htaフォルダ
-  - 「wsf.js」を利用したHTA起動実行WSFスクリプト（サンプル）。
+  - 「wsf.js」を利用したHTA起動実行WSFスクリプト。
+  - サンプル：「hta_run_sample」
 
 - wsf.js.tools.register.wsf
   - 「tools.sendto」フォルダ内のスクリプトを登録するスクリプト。

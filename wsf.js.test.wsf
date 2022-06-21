@@ -78,28 +78,42 @@ jspathtest.prototype = {
 		res.push(js.str.format("[js.path.join(${0})]->${1}", "['" + test.join("','") + "']", String(js.path.join(test))));
 		return res.join("\r\n");
 	},
-	each : function(dir, opt){
+	each : function(path, opt){
 		var _opt = (js.isobject(opt)) ? ", { " + js.each(opt, function(key, val){ return key + ":" + val }).join(", ") + " }" : "";
-		var ret = js.path.each(dir, function(path){
+		var ret = js.path.each(path, function(path){
 			var info = js.path.info(path);
-			return js.str.format("[js.path.each('${2}'${3})][${0}]${1}", info.isdir ? "d" : "f", info.fullpath, dir, _opt);
+			return js.str.format("[js.path.each('${2}'${3})][${0}]${1}", info.isdir ? "d" : "f", info.fullpath, path, _opt);
 		}, opt);
-		test.result((ret.length > 0) ? ret.join("\r\n") : js.str.format("[js.path.each('${0}')] not found.", dir));
+		test.result((ret.length > 0) ? ret.join("\r\n") : js.str.format("[js.path.each('${0}')] not found.", path));
+	},
+	makepath : function(path){
+		return {
+			dir : [
+				js.path.join(path, "dir1/dir2/dir3")
+			],
+			file : [
+				js.path.join(path, "file1a.txt"),
+				js.path.join(path, "file1b.txt"),
+				js.path.join(path, "dir1/file2.txt"),
+				js.path.join(path, "dir1/dir2/file3.txt"),
+				js.path.join(path, "dir1/dir2/dir3/file4.txt")
+			]
+		};
 	},
 	make : function(path){
 		var res = [];
-		var dir = js.path.join(path, "dir1/dir2/dir3");
-		res.push(js.str.format("[js.path.mkdir('${0}')]->[${1}]", dir, js.path.mkdir(dir)));
-		var file1a = js.path.join(path, "file1a.txt");
-		var file1b = js.path.join(path, "file1b.txt");
-		var file2 = js.path.join(path, "dir1/file2.txt");
-		var file3 = js.path.join(path, "dir1/dir2/file3.txt");
-		var file4 = js.path.join(path, "dir1/dir2/dir3/file4.txt");
-		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file1a, js.path.touch(file1a)));
-		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file1b, js.path.touch(file1b)));
-		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file2, js.path.touch(file2)));
-		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file3, js.path.touch(file3)));
-		res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file4, js.path.touch(file4)));
+		var makepath = this.makepath(path);
+		js.each(makepath.dir, function(i, dir){
+			res.push(js.str.format("[js.path.mkdir('${0}')]->[${1}]", dir, js.path.mkdir(dir)));
+		});
+		js.each(makepath.file, function(i, file){
+			res.push(js.str.format("[js.path.touch('${0}')]->[${1}]", file, js.path.touch(file)));
+			if(i % 2){
+				var txt = String(file) + " text.";
+				js.path.appendfile(file, txt);
+				res.push(js.str.format("[js.path.appendfile('${0}', '${1}')]", file, txt));
+			}
+		});
 		test.result(res.join("\r\n"));
 	},
 	cpdir : function(fromdir, todir){
@@ -178,6 +192,7 @@ jspathtest.prototype = {
 		this.remove(movedir);
 		this.each(testdir);
 		this.each(movedir);
+		this.each(this.makepath(testdir).file[0]);
 	}
 };
 jstest.prototype.path = new jspathtest();
@@ -252,6 +267,7 @@ jsbooktest.prototype = {
 
 			book.WorkSheets.Add(book.WorkSheets("sheet1"));
 			book.ActiveSheet.Name = "createadd1";
+			return true;
 		});
 
 		test.result("[js.book.create]" + path);
@@ -290,6 +306,7 @@ jsbooktest.prototype = {
 				wsout.Cells(j, 2).Value = book.Worksheets(id).Name;
 				j++;
 			}, {filter : new RegExp(filter)});
+			return true;
 		});
 
 		test.result("[js.book.update]" + path);

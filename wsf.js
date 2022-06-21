@@ -29,9 +29,6 @@ WindowsJScript.prototype = {
 		WScript = null;
 		this.info = this.path.info(location.pathname);
 		this.args = this.hta.href2arg(location.href);
-//		if(location.href.match(/.+\?.*/)){
-//			this.args = location.href.replace(/^.*\?/, "").split(this.cmd.htaargsep);
-//		}
 	},
 	initwsf : function(){
 		this.info = this.path.info(WScript.ScriptFullName);
@@ -162,8 +159,10 @@ WindowsJScript.prototype = {
 	extend : function(){
 		var args = [].slice.call(arguments);
 		var rtn = args.shift();
+		if(!this.isobject(rtn)) rtn = {};
 		var self = this;
 		this.each(args, function(i, obj){
+			if(!self.isobject(obj)) return;
 			self.each(obj, function(key, item){
 				rtn[key] = item;
 			});
@@ -188,8 +187,8 @@ var js = new WindowsJScript();
 //----------------------------------------------
 // WindowsJScript.hta
 //----------------------------------------------
-var WrapHtaCommand = function(){};
-WrapHtaCommand.prototype = {
+var WrapHtaControl = function(){};
+WrapHtaControl.prototype = {
 //	sep : "|||",
 	sep : "&",
 	args : {},
@@ -219,11 +218,11 @@ WrapHtaCommand.prototype = {
 	},
 	escape : function(str){
 		return str
-			.replace(/&/g, "&amp;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#039;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
+			.replace(/&/g,  "&amp;")
+			.replace(/"/g,  "&quot;")
+			.replace(/'/g,  "&#039;")
+			.replace(/</g,  "&lt;")
+			.replace(/>/g,  "&gt;")
 			.replace(/\n/g, "<br>");
 	},
 	exec : function(){
@@ -243,7 +242,7 @@ WrapHtaCommand.prototype = {
 //		return js.cmd.shell().run(cmd);
 	}
 };
-WindowsJScript.prototype.hta = new WrapHtaCommand();
+WindowsJScript.prototype.hta = new WrapHtaControl();
 
 //----------------------------------------------
 // WindowsJScript.cmd
@@ -349,6 +348,14 @@ WrapDialog.prototype = {
 		if(js.isnullorempty(opt.icon))  opt.icon  = this.ICON.NONE;
 		var sh = new ActiveXObject( "WScript.Shell" );
 		return sh.Popup(opt.txt, opt.sec, opt.title, opt.btn + opt.icon);
+	},
+	savepath : function(path){
+		var sfs = new ActiveXObject("SAFRCFileDlg.FileSave");
+		sfs.FileName = path;
+		sfs.FileType = "テキストファイル";
+		var ret = fsv.OpenFileSaveDlg();
+		sfs = null;
+		return ret;
 	}
 };
 WindowsJScript.prototype.dialog = new WrapDialog();
@@ -375,6 +382,22 @@ WrapMsg.prototype = {
 	}
 };
 WindowsJScript.prototype.msg = new WrapMsg();
+
+//----------------------------------------------
+// WindowsJScript.dbg
+//----------------------------------------------
+var WrapDebug = function(){ return this; };
+WrapDebug.prototype = {
+	arr : [],
+	push : function(str){
+		this.arr.push(str);
+	},
+	echo : function(){
+		js.echo(this.arr.join("\r\n"));
+		this.arr = [];
+	}
+};
+WindowsJScript.prototype.dbg = new WrapDebug();
 
 //----------------------------------------------
 // WindowsJScript.date
@@ -462,9 +485,8 @@ WindowsJScript.prototype.str = new WrapString();
 //----------------------------------------------
 // WindowsJScript.path
 //----------------------------------------------
-var WrapPath = function(){ return this.init(); };
+var WrapPath = function(){ return this; };
 WrapPath.prototype = {
-	fso : null,
 	OPENMODE : {
 		FORREAD   : 1,     // [default]
 		FORWRITE  : 2,
@@ -489,9 +511,14 @@ WrapPath.prototype = {
 		LF   : "\n",
 		CRLF : "\r\n"
 	},
-	init : function(){
-		this.fso = new ActiveXObject("Scripting.FileSystemObject");
-		return this;
+	newfso : function(){
+		return new ActiveXObject("Scripting.FileSystemObject");
+	},
+	wrapfso : function(func){
+		var fso = this.newfso();
+		var ret = func(fso);
+		fso = null;
+		return ret;
 	},
 	defaultoptions : function(){
 		return {
@@ -503,43 +530,55 @@ WrapPath.prototype = {
 		}
 	},
 	openfile : function(path, txt, opt){
-		opt = js.extend(this.defaultoptions(), opt);
-
-		var stream = this.fso.OpenTextFile(path, opt.OPENMODE, opt.NOTHINGTHEN, opt.CHARCODE);
-
-		if(opt.OPENMODE === this.OPENMODE.FORREAD){
-			// テキスト初期化
-			var text = "";
-
-//			// 読み取り方法① ファイルから全ての文字データを読み込む
-//			text = stream.ReadAll();
-//			// ファイルの末尾までループ
-//			while (!stream.AtEndOfStream) {
-//				// 読み取り方法② ファイルの文字データを一行ずつ表示する
-//				text += stream.ReadLine();
-//				// 読み取り方法③ 読み込みバッファ指定でループする
-//				text += stream.Read(1024);
-//			}
-//			// 読み取り方法④ 全行を読み込む
-//			text = stream.ReadText(-1);
-			// 読み取り方法⑤ サイズ分を一括で読み込む
-			text = stream.Read(stream.Size);
-
-			stream.Close();
-			return text;
-		} else {
-			if(txt != null && !opt.NEWLINE){
-				// 文字列を書き込む(改行なし)
-				stream.Write(txt);
-			}else if(txt != null){
-				// 文字列を書き込む(改行あり)
-				stream.WriteLine(txt);
+		try {
+			var info = this.info(path);
+			if(!this.isdir(info.parent)){
+			    throw new Error(js.msg.get("NotExistDir", path));
 			}
-//			//  ブランク行を二行書き込む
-//			stream.WriteBlankLines( 2 );
+			if(js.isnullorempty(info.filename)){
+			    throw new Error("path failed.(" + path + ")");
+			}
 
-			stream.Close();
-			return true;
+			opt = js.extend(this.defaultoptions(), opt);
+
+			var stream = this.wrapfso(function(fso){ return fso.OpenTextFile(path, opt.OPENMODE, opt.NOTHINGTHEN, opt.CHARCODE); });
+
+			if(opt.OPENMODE === this.OPENMODE.FORREAD){
+				// テキスト初期化
+				var text = "";
+
+//				// 読み取り方法① ファイルから全ての文字データを読み込む
+//				text = stream.ReadAll();
+//				// ファイルの末尾までループ
+//				while (!stream.AtEndOfStream) {
+//					// 読み取り方法② ファイルの文字データを一行ずつ表示する
+//					text += stream.ReadLine();
+//					// 読み取り方法③ 読み込みバッファ指定でループする
+//					text += stream.Read(1024);
+//				}
+//				// 読み取り方法④ 全行を読み込む
+//				text = stream.ReadText(-1);
+				// 読み取り方法⑤ サイズ分を一括で読み込む
+				text = stream.Read(stream.Size);
+
+				stream.Close();
+				return text;
+			} else {
+				if(txt != null && !opt.NEWLINE){
+					// 文字列を書き込む(改行なし)
+					stream.Write(txt);
+				}else if(txt != null){
+					// 文字列を書き込む(改行あり)
+					stream.WriteLine(txt);
+				}
+//				//  ブランク行を二行書き込む
+//				stream.WriteBlankLines( 2 );
+
+				stream.Close();
+				return true;
+			}
+		} catch(e) {
+		    throw new Error('[js.path.openfile] ' + e);
 		}
 	},
 	readfile : function(path, opt){
@@ -558,17 +597,18 @@ WrapPath.prototype = {
 		return this.openfile(path, txt, opt);
 	},
 	info : function(path){
+		var fso = this.newfso();
 		var rtn = {
-			fullpath : this.fso.GetAbsolutePathName(path),
-			filename : this.fso.GetFileName(path),
-			basename : this.fso.GetBaseName(path),
-			extname  : this.fso.GetExtensionName(path),
+			fullpath : fso.GetAbsolutePathName(path),
+			filename : fso.GetFileName(path),
+			basename : fso.GetBaseName(path),
+			extname  : fso.GetExtensionName(path),
 			parent   : this.parent(path),
 			isdir    : this.isdir(path),
 			isfile   : this.isfile(path)
 		};
 		if(rtn.isfile){
-			var obj = this.fso.GetFile(path);
+			var obj = fso.GetFile(path);
 			rtn.attr = obj.Attributes;
 			rtn.createdate = obj.DateCreated;
 			rtn.updatedate = obj.DateLastModified;
@@ -579,7 +619,7 @@ WrapPath.prototype = {
 			rtn.type = obj.Type;
 			rtn.size = obj.Size;
 		} else if(rtn.isdir){
-			var obj = this.fso.GetFolder(path);
+			var obj = fso.GetFolder(path);
 			rtn.createdate = obj.DateCreated;
 			rtn.updatedate = obj.DateLastModified;
 			rtn.drive = obj.Drive;
@@ -590,6 +630,7 @@ WrapPath.prototype = {
 //			rtn.size = obj.Size;
 			rtn.isroot = obj.IsRootFolder;
 		}
+		fso = null;
 		return rtn;
 	},
 	each : function(path, func, opt) {
@@ -603,12 +644,12 @@ WrapPath.prototype = {
 
 		if(this.isfile(path)){
 			return [func(path)];
-		}
-		if(this.isdir(path)){
+		} else if(this.isdir(path)){
 			if(opt.dir){
 				rtn.push(func(path));
 			}
-			var dir = this.fso.GetFolder(path);
+			var fso = this.newfso();
+			var dir = fso.GetFolder(path);
 			if(opt.file){
 				for (var fp = new Enumerator(dir.Files); !fp.atEnd(); fp.moveNext()) {
 					if(opt.filterfile && !String(fp.item()).match(opt.filterfile)){
@@ -625,6 +666,7 @@ WrapPath.prototype = {
 				}
 				rtn.push.apply(rtn, this.each(fp.item(), func, opt));
 			}
+			fso = null;
 		}
 		return rtn;
 	},
@@ -635,12 +677,13 @@ WrapPath.prototype = {
 	remove: function(path){ return this.isdir(path) ? this.rmdir(path) : this.isfile(path) ? this.rm(path) : false; },
 	copy  : function(from, to){ return this.isdir(from) ? this.cpdir(from, to) : this.isfile(from) ? this.cp(from, to) : false; },
 	move  : function(from, to){ return this.isdir(from) ? this.mvdir(from, to) : this.isfile(from) ? this.mv(from, to) : false; },
-	rm    : function(path){ this.fso.DeleteFile(path); },
-	rmdir : function(path){ this.fso.DeleteFolder(path); },
-	cp    : function(from, to){ this.fso.CopyFile(from, to); },
-	cpdir : function(from, to){ this.fso.CopyFolder(from, to); },
-	mv    : function(from, to){ this.fso.MoveFile(from, to); },
-	mvdir : function(from, to){ this.fso.MoveFolder(from, to); },
+	rm    : function(path){ return this.wrapfso(function(fso){ return fso.DeleteFile(path); }); },
+	rmdir : function(path){ return this.wrapfso(function(fso){ return fso.DeleteFolder(path); }); },
+	cp    : function(from, to){ return this.wrapfso(function(fso){ return fso.CopyFile(from, to); }); },
+	cpdir : function(from, to){ return this.wrapfso(function(fso){ return fso.CopyFolder(from, to); }); },
+	mv    : function(from, to){ return this.wrapfso(function(fso){ return fso.MoveFile(from, to); }); },
+	mvdir : function(from, to){ return this.wrapfso(function(fso){ return fso.MoveFolder(from, to); }); },
+
 	touch : function(path, ismkdir){
 		if(!!ismkdir){ this.mkdir(this.parent(path)); }
 		return this.openfile(path, null, this.OPENMODE.FORWRITE, this.NOTHINGTHEN.CREATE, this.CHARCODE.SYSTEM);
@@ -648,8 +691,11 @@ WrapPath.prototype = {
 	mkdir : function(path){
 		if(this.isdir(path)) return true;
 		this.mkdir(this.parent(path));
-		this.fso.CreateFolder(path);
+		this.wrapfso(function(fso){ return fso.CreateFolder(path); });
 		return true;
+	},
+	sla2dq : function(str){
+		return str.replace(/\//g, "\\");
 	},
 	join : function(){
 		var self = this;
@@ -659,17 +705,17 @@ WrapPath.prototype = {
 		}
 		var path = this.info(String(args.shift())).fullpath;
 		js.each(args, function(i, val){
-			path = self.fso.BuildPath(path, val);
+			path = self.wrapfso(function(fso){ return fso.BuildPath(path, self.sla2dq(val)); });
 		});
 		return path;
 	},
-	tmpname : function(){ return this.fso.GetTempName(); },
-	isdrive : function(path){ return this.fso.DriveExists(path); },
-	drive  : function(path){ return this.fso.GetDriveName(path); },
-	parent : function(path){ return this.fso.GetParentFolderName(path) },
-	isfile : function(path){ return this.fso.FileExists(path); },
-	isdir  : function(path){ return this.fso.FolderExists(path); },
-	exist  : function(path){ return this.isdir || this.isfile; }
+	tmpname : function(){ return this.wrapfso(function(fso){ return fso.GetTempName(); }); },
+	isdrive : function(path){ return this.wrapfso(function(fso){ return fso.DriveExists(path); }); },
+	drive   : function(path){ return this.wrapfso(function(fso){ return fso.GetDriveName(path); }); },
+	parent  : function(path){ return this.wrapfso(function(fso){ return fso.GetParentFolderName(path); }); },
+	isfile  : function(path){ return this.wrapfso(function(fso){ return fso.FileExists(path); }); },
+	isdir   : function(path){ return this.wrapfso(function(fso){ return fso.FolderExists(path); }); },
+	exist   : function(path){ return this.isdir || this.isfile; }
 };
 WindowsJScript.prototype.path = new WrapPath();
 
@@ -762,10 +808,14 @@ WindowsJScript.prototype.Logger = WrapLog;
 //----------------------------------------------
 // WindowsJScript.book
 //----------------------------------------------
-var WrapBook = function(){ this.init(); return this; };
+var WrapBook = function(){ return this; };
 WrapBook.prototype = {
 	extregex : /\.xls[xms]?$/,
-	excel : null,
+	VIEWMODE : {
+		"xlNormalView"       : 1, // 標準
+		"xlPageBreakPreview" : 2, // 改ページプレビュー
+		"xlPageLayoutView"   : 3  // ページレイアウト
+	},
 	maxrow : function(sheet){ return sheet.Cells(1, 1).SpecialCells(11).Row },
 	maxcol : function(sheet){ return sheet.Cells(1, 1).SpecialCells(11).Column },
 	R1C1 : function(sheet){},
@@ -792,8 +842,14 @@ WrapBook.prototype = {
 		});
 		return arr;
 	},
-	init : function(){
-		this.excel = new ActiveXObject("Excel.Application");
+	newexcel : function(){
+		return new ActiveXObject("Excel.Application");
+	},
+	wrapexcel : function(func){
+		var excel = this.newexcel();
+		var ret = func(excel);
+		excel = null;
+		return ret;
 	},
 	isbook : function(path){
 		if(!js.path.isfile(path)){
@@ -815,62 +871,54 @@ WrapBook.prototype = {
 		}
 		return ret;
 	},
-	bookexeption : function(name, path, e){
+	exeptionlog : function(name, path, e){
 		var msg = js.str.format("[${3}] error(${1}:${2}). path:${0}", path, (e.number & 0xFFFF), e.message, name);
 		js.echo(msg);
 		js.log.err(msg);
 	},
-	read : function(path, func){
-		if(!this.isbook) return false;
-		var book = null;
-		try{
-			book = this.excel.Workbooks.Open(path);
-			return func(book);
-		} catch(e) {
-			this.bookexeption("js.book.read", path, e);
-		} finally {
-			if(!js.isnull(book)) {
-				book.Close(false);
-				book = null;
-			}
+	defaultoptions : function(){
+		return {
+			NewBook            : false,
+			ReadOnly           : true,
+			Visible            : false, // ブック表示
+			DisplayAlerts      : false, // 実行中アラート表示
+			CheckCompatibility : false, // 互換性チェック実行
+			LogPrefix          : "js.book.open"
 		}
 	},
-	update : function(path, func){
-		if(!this.isbook) return false;
+	read   : function(path, func, opt){ return this.open(path, func, js.extend(opt, { NewBook : false, ReadOnly : true,  LogPrefix : "js.book.read"   })); },
+	update : function(path, func, opt){ return this.open(path, func, js.extend(opt, { NewBook : false, ReadOnly : false, LogPrefix : "js.book.update" })); },
+	create : function(path, func, opt){ return this.open(path, func, js.extend(opt, { NewBook : true,  ReadOnly : false, LogPrefix : "js.book.create" })); },
+	open : function(path, func, opt){
+		var excel = this.newexcel();
+		excel.Visible = opt.Visible;
 		var book = null;
+		var rtn = false;
 		try{
-			book = this.excel.Workbooks.Open(path);
-			func(book);
-			book.CheckCompatibility = false;
-			this.excel.DisplayAlerts = false;
+			opt = js.extend(this.defaultoptions, opt);
+			if(opt.NewBook){
+				book = excel.Workbooks.Add();
+			} else {
+				book = excel.Workbooks.Open(path);
+				if(!this.isbook(path)) return false;
+			}
+			if(!func(book, excel)) return false;
+			if(opt.ReadOnly) return true;
+			book.CheckCompatibility = opt.CheckCompatibility;
+			excel.DisplayAlerts = opt.DisplayAlerts;
 			book.SaveAs(path);
+			rtn = true;
 		} catch(e) {
-			this.bookexeption("js.book.update", path, e);
+			this.exeptionlog(opt.LogPrefix, path, e);
+			rtn = false;
 		} finally {
 			if(!js.isnull(book)) {
+				excel.CutCopyMode = false;
 				book.Close(false);
 				book = null;
 			}
-		}
-	},
-	create : function(path, func){
-		if(!this.isbook) return false;
-		this.excel.Visible = false;
-		var book = null;
-		try{
-			book = this.excel.Workbooks.Add();
-			func(book);
-			book.CheckCompatibility = false;
-			this.excel.DisplayAlerts = false;
-			book.SaveAs(path);
-		} catch(e) {
-			this.bookexeption("js.book.create", path, e);
-		} finally {
-			if(!js.isnull(book)) {
-				this.excel.CutCopyMode = false;
-				book.Close(false);
-				book = null;
-			}
+			excel = null;
+			return rtn;
 		}
 	}
 };

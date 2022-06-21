@@ -1,0 +1,15 @@
+<job id="wsf.tools.sendto.excel_all_each">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.hta.sample_run_hta
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+js.hta.exec(js.path.join(js.info.parent, "../hta/excel_all_each.hta"), js.args);
+	</Script>
+</job>

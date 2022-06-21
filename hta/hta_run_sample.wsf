@@ -1,0 +1,26 @@
+<job id="wsf.hta.sample_run_hta">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.hta.sample_run_hta
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+
+var hta = js.path.join(js.info.parent, "hta_run_sample.hta");
+if(js.args.length > 0){
+	var args = js.args;
+	args.unshift(hta);
+	js.hta.exec.apply(js.hta, args);
+} else {
+	js.hta.exec(hta, "param1", "param2", js.info.parent)
+}
+
+
+//js.hta.exec(js.path.join(js.info.parent, "hta_run_sample.hta"), "param1", "param2", js.info.parent)
+	</Script>
+</job>
