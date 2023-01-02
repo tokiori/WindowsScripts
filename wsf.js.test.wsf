@@ -167,12 +167,12 @@ jspathtest.prototype = {
 		res.push(this.join());
 		test.result(res.join("\r\n"));
 
-		var testdir = js.path.join(logdir, 'testdir');
-		var cpdir   = js.path.join(logdir, 'cpdir');
-		var mvdir   = js.path.join(logdir, 'mvdir');
-		var movedir = js.path.join(logdir, 'movedir');
-		var copydir = js.path.join(logdir, 'copydir');
-		var movedir = js.path.join(logdir, 'movedir');
+		var testdir = js.path.join(logdir, "testdir");
+		var cpdir   = js.path.join(logdir, "cpdir");
+		var mvdir   = js.path.join(logdir, "mvdir");
+		var movedir = js.path.join(logdir, "movedir");
+		var copydir = js.path.join(logdir, "copydir");
+		var movedir = js.path.join(logdir, "movedir");
 
 		this.make(testdir);
 		this.each(testdir);
