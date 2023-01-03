@@ -215,6 +215,7 @@ jslogtest.prototype = {
 		js.log.err("[js.log.err] this is error.");
 		js.log.dbg("[js.log.dbg] this is debug.");
 		js.log.info("[js.log.info] logfile is default.");
+		js.log.info("[exe info]" + js.dbg.obj2str(info));
 		if(!enabled) js.log.off();
 	}
 };

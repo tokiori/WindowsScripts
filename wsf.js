@@ -70,7 +70,8 @@ WindowsJScript.prototype = {
 	isboolean     : function(argv){ return typeof argv === 'boolean'; },
 	issymbol      : function(argv){ return typeof argv === 'symbol'; },
 	isarray       : function(argv){ return Object.prototype.toString.call(argv) === '[object Array]'; },
-	isobject      : function(argv){ return typeof argv === 'object' && !this.isnull(argv); },
+	isobject      : function(argv){ return typeof argv === 'object' },
+//	isobject      : function(argv){ return typeof argv === 'object' && !this.isnull(argv); },
 	isnullorempty : function(argv){
 		if(this.isnull(argv)) return true;
 		if(this.isundefined(argv)) return true;
@@ -388,6 +389,24 @@ WindowsJScript.prototype.msg = new WrapMsg();
 //----------------------------------------------
 var WrapDebug = function(){ return this; };
 WrapDebug.prototype = {
+	obj2str : function(obj, level){
+		if(!js.isobject(obj) && !js.isarray(obj)) return js.str.format('"${0}"', obj);
+		if(!js.isnumber(level)) level = 0;
+		var self = this;
+		var rtn = [];
+		var waku = js.isarray(obj) ? ["[", "]"] : ["{", "}"];
+		var prefix = "";
+		for(var i=0;i<level * 2;i++){
+			prefix = prefix + " ";
+		}
+		rtn.push(waku[0]);
+		js.each(obj, function(key, val){
+			var txt = js.str.format("\"${0}\" : ${1}", key, self.obj2str(val, level + 1));
+			rtn.push(prefix + "  " + txt);
+		})
+		rtn.push(prefix + waku[1]);
+		return rtn.join("\r\n");
+	},
 	arr : [],
 	push : function(str){
 		this.arr.push(str);
@@ -487,29 +506,10 @@ WindowsJScript.prototype.str = new WrapString();
 //----------------------------------------------
 var WrapPath = function(){ return this; };
 WrapPath.prototype = {
-	OPENMODE : {
-		FORREAD   : 1,     // [default]
-		FORWRITE  : 2,
-		FORAPPEND : 8
-	},
-	NOTHINGTHEN : {
-		CREATE :  true,
-		THROUGH : false    // [default]
-	},
-	CHARCODE : {
-		UTF    : -1,
-		SJIS   : 0,        // [default]
-		SYSTEM : -2
-	},
 	TYPEIS : {
 		DIR  : 1,
 		FILE : 2,
 		ALL  : 9
-	},
-	NEWLINECODE : {
-		CR   : "\r",
-		LF   : "\n",
-		CRLF : "\r\n"
 	},
 	newfso : function(){
 		return new ActiveXObject("Scripting.FileSystemObject");
@@ -520,82 +520,9 @@ WrapPath.prototype = {
 		fso = null;
 		return ret;
 	},
-	defaultoptions : function(){
-		return {
-			OPENMODE    : this.OPENMODE.FORREAD,
-			NOTHINGTHEN : this.NOTHINGTHEN.CREATE,
-			CHARCODE    : this.CHARCODE.SYSTEM,
-			NEWLINE     : false,
-			NEWLINECODE : null
-		}
-	},
-	openfile : function(path, txt, opt){
-		try {
-			var info = this.info(path);
-			if(!this.isdir(info.parent)){
-			    throw new Error(js.msg.get("NotExistDir", path));
-			}
-			if(js.isnullorempty(info.filename)){
-			    throw new Error("path failed.(" + path + ")");
-			}
-
-			opt = js.extend(this.defaultoptions(), opt);
-
-			var stream = this.wrapfso(function(fso){ return fso.OpenTextFile(path, opt.OPENMODE, opt.NOTHINGTHEN, opt.CHARCODE); });
-
-			if(opt.OPENMODE === this.OPENMODE.FORREAD){
-				// テキスト初期化
-				var text = "";
-
-//				// 読み取り方法① ファイルから全ての文字データを読み込む
-//				text = stream.ReadAll();
-//				// ファイルの末尾までループ
-//				while (!stream.AtEndOfStream) {
-//					// 読み取り方法② ファイルの文字データを一行ずつ表示する
-//					text += stream.ReadLine();
-//					// 読み取り方法③ 読み込みバッファ指定でループする
-//					text += stream.Read(1024);
-//				}
-//				// 読み取り方法④ 全行を読み込む
-//				text = stream.ReadText(-1);
-				// 読み取り方法⑤ サイズ分を一括で読み込む
-				text = stream.Read(stream.Size);
-
-				stream.Close();
-				return text;
-			} else {
-				if(txt != null && !opt.NEWLINE){
-					// 文字列を書き込む(改行なし)
-					stream.Write(txt);
-				}else if(txt != null){
-					// 文字列を書き込む(改行あり)
-					stream.WriteLine(txt);
-				}
-//				//  ブランク行を二行書き込む
-//				stream.WriteBlankLines( 2 );
-
-				stream.Close();
-				return true;
-			}
-		} catch(e) {
-		    throw new Error('[js.path.openfile] ' + e);
-		}
-	},
-	readfile : function(path, opt){
-		if(!js.isobject(opt)) opt = {};
-		opt.OPENMODE = this.OPENMODE.FORREAD;
-		return this.openfile(path, null, opt);
-	},
-	writefile : function(path, txt, opt){
-		if(!js.isobject(opt)) opt = {};
-		opt.OPENMODE = this.OPENMODE.FORWRITE;
-		return this.openfile(path, txt, opt);
-	},
-	appendfile : function(path, txt, opt){
-		if(!js.isobject(opt)) opt = {};
-		opt.OPENMODE = this.OPENMODE.FORAPPEND;
-		return this.openfile(path, txt, opt);
-	},
+	readfile   : function(path, opt){ return js.file.read(path, opt); },
+	writefile  : function(path, txt, opt){ return js.file.write(path, txt, opt); },
+	appendfile : function(path, txt, opt){ return js.file.append(path, txt, opt); },
 	info : function(path){
 		var fso = this.newfso();
 		var rtn = {
@@ -670,10 +597,7 @@ WrapPath.prototype = {
 		}
 		return rtn;
 	},
-	extchange : function(path, ext){
-		if(!js.path.isfile(path)) return path;
-		return path.replace(/\.[^\.]+$/, ext);
-	},
+	extchange : function(path, ext){ return js.file.extchange(path, ext); },
 	remove: function(path){ return this.isdir(path) ? this.rmdir(path) : this.isfile(path) ? this.rm(path) : false; },
 	copy  : function(from, to){ return this.isdir(from) ? this.cpdir(from, to) : this.isfile(from) ? this.cp(from, to) : false; },
 	move  : function(from, to){ return this.isdir(from) ? this.mvdir(from, to) : this.isfile(from) ? this.mv(from, to) : false; },
@@ -683,11 +607,7 @@ WrapPath.prototype = {
 	cpdir : function(from, to){ return this.wrapfso(function(fso){ return fso.CopyFolder(from, to); }); },
 	mv    : function(from, to){ return this.wrapfso(function(fso){ return fso.MoveFile(from, to); }); },
 	mvdir : function(from, to){ return this.wrapfso(function(fso){ return fso.MoveFolder(from, to); }); },
-
-	touch : function(path, ismkdir){
-		if(!!ismkdir){ this.mkdir(this.parent(path)); }
-		return this.openfile(path, null, this.OPENMODE.FORWRITE, this.NOTHINGTHEN.CREATE, this.CHARCODE.SYSTEM);
-	},
+	touch : function(path, ismkdir){ return js.file.touch(path, ismkdir); },
 	mkdir : function(path){
 		if(this.isdir(path)) return true;
 		this.mkdir(this.parent(path));
@@ -715,9 +635,115 @@ WrapPath.prototype = {
 	parent  : function(path){ return this.wrapfso(function(fso){ return fso.GetParentFolderName(path); }); },
 	isfile  : function(path){ return this.wrapfso(function(fso){ return fso.FileExists(path); }); },
 	isdir   : function(path){ return this.wrapfso(function(fso){ return fso.FolderExists(path); }); },
-	exist   : function(path){ return this.isdir || this.isfile; }
+	exist   : function(path){ return this.isdir(path) || this.isfile(path); }
 };
 WindowsJScript.prototype.path = new WrapPath();
+
+//----------------------------------------------
+// WindowsJScript.file
+//----------------------------------------------
+var WrapFile = function(){ return this; };
+WrapFile.prototype = {
+	OPENMODE : {
+		FORREAD   : 1,     // [default]
+		FORWRITE  : 2,
+		FORAPPEND : 8
+	},
+	NOTHINGTHEN : {
+		CREATE :  true,
+		THROUGH : false    // [default]
+	},
+	CHARCODE : {
+		UTF    : -1,
+		SJIS   : 0,        // [default]
+		SYSTEM : -2
+	},
+	NEWLINECODE : {
+		CR   : "\r",
+		LF   : "\n",
+		CRLF : "\r\n"
+	},
+	defaultoptions : function(){
+		return {
+			OPENMODE    : this.OPENMODE.FORREAD,
+			NOTHINGTHEN : this.NOTHINGTHEN.CREATE,
+			CHARCODE    : this.CHARCODE.SYSTEM,
+			NEWLINE     : false,
+			NEWLINECODE : null
+		}
+	},
+	open : function(path, txt, opt){
+		try {
+			var info = js.path.info(path);
+			if(!js.path.isdir(info.parent)){
+			    throw new Error(js.msg.get("NotExistDir", path));
+			}
+			if(js.isnullorempty(info.filename)){
+			    throw new Error("path failed.(" + path + ")");
+			}
+
+			opt = js.extend(this.defaultoptions(), opt);
+
+			var stream = js.path.wrapfso(function(fso){ return fso.OpenTextFile(path, opt.OPENMODE, opt.NOTHINGTHEN, opt.CHARCODE); });
+
+			if(opt.OPENMODE === this.OPENMODE.FORREAD){
+				// テキスト初期化
+				var text = "";
+
+//				// 読み取り方法① ファイルから全ての文字データを読み込む
+//				text = stream.ReadAll();
+//				// ファイルの末尾までループ
+//				while (!stream.AtEndOfStream) {
+//					// 読み取り方法② ファイルの文字データを一行ずつ表示する
+//					text += stream.ReadLine();
+//					// 読み取り方法③ 読み込みバッファ指定でループする
+//					text += stream.Read(1024);
+//				}
+//				// 読み取り方法④ 全行を読み込む
+//				text = stream.ReadText(-1);
+				// 読み取り方法⑤ サイズ分を一括で読み込む
+				text = stream.Read(stream.Size);
+
+				stream.Close();
+				return text;
+			} else {
+				if(txt != null && !opt.NEWLINE){
+					// 文字列を書き込む(改行なし)
+					stream.Write(txt);
+				}else if(txt != null){
+					// 文字列を書き込む(改行あり)
+					stream.WriteLine(txt);
+				}
+//				//  ブランク行を二行書き込む
+//				stream.WriteBlankLines( 2 );
+
+				stream.Close();
+				return true;
+			}
+		} catch(e) {
+			if(stream) stream.Close();
+		    throw new Error('[js.file.open] ' + e);
+		}
+	},
+	read : function(path, opt){
+		return this.open(path, null, js.extend(opt, { OPENMODE : this.OPENMODE.FORREAD }));
+	},
+	write : function(path, txt, opt){
+		return this.open(path, txt, js.extend(opt, { OPENMODE : this.OPENMODE.FORWRITE }));
+	},
+	append : function(path, txt, opt){
+		return this.open(path, txt, js.extend(opt, { OPENMODE : this.OPENMODE.FORAPPEND }));
+	},
+	extchange : function(path, ext){
+		if(!js.path.isfile(path)) return path;
+		return path.replace(/\.[^\.]+$/, ext);
+	},
+	touch : function(path, ismkdir){
+		if(!!ismkdir){ js.path.mkdir(js.path.parent(path)); }
+		return this.open(path, null, this.OPENMODE.FORWRITE, this.NOTHINGTHEN.CREATE, this.CHARCODE.SYSTEM);
+	}
+};
+WindowsJScript.prototype.file = new WrapFile();
 
 //----------------------------------------------
 // WindowsJScript.log
