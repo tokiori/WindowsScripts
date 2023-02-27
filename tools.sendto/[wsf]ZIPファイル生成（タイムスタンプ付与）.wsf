@@ -1,0 +1,32 @@
+<job id="wsf.tools.sendto.zipAddTimestamp">
+	<script language="JScript" src="../wsf.js"/>
+	<script language="JScript">
+/*!
+ * wsf.tools.sendto.zipAddTimestamp
+ *
+ * Copyright (c) 2022 tokiori
+ * This software is Released under the MIT license.
+ * see https://opensource.org/licenses/MIT
+ *
+ */
+
+var renameCopy = function(frompath){
+	var suffix = js.date.now("_YYYYMMDDhhmmss");
+	var topath = frompath + suffix;
+	if(js.path.isfile(frompath)){
+		var info = js.path.info(frompath);
+		if(info.extname.length == 0){
+			topath = frompath + suffix;
+		} else {
+			topath = frompath.replace(/(\.[^\.]+)$/, suffix + "$1");
+		}
+	}
+	var cmd = js.str.format('powershell Compress-Archive -Path "${0}" -DestinationPath "${1}.zip"', frompath, topath);
+	return js.cmd.exec(cmd);
+};
+
+js.each(js.args, function(i, path){
+	renameCopy(path);
+});
+	</Script>
+</job>
