@@ -950,4 +950,51 @@ WrapBook.prototype = {
 };
 WindowsJScript.prototype.book = new WrapBook();
 
+//----------------------------------------------
+// WindowsJScript.json (Experimental implementation)
+//----------------------------------------------
+var WrapJson = function () { return this; };
+WrapJson.prototype = {
+    props: {
+        indentStr : "    ",
+        newLineStr : "\r\n"
+    },
+    loopStr : function (str, loop) {
+        var ret = "";
+        for (var i = 0; i < loop; i++) {
+            ret += str;
+        }
+        return ret;
+    },
+    sharping: function (str) {
+        str = str.replace(/(\r?\n|\r)/g, "");
+        var len = str.length;
+        var ret = "";
+        var indent = 0;
+        var isInnerStr = false;
+        for (var i = 0; i < len; i++) {
+            var curr = str.charAt(i);
+            var prev = str.charAt(i - 1);
+            if (!isInnerStr && (curr === "{" || curr === "[")) {
+                indent++;
+                ret += curr + this.props.newLineStr + this.loopStr(this.props.indentStr, indent);
+            } else if (!isInnerStr && (curr === "}" || curr === "]")) {
+                indent--;
+                ret += this.props.newLineStr + this.loopStr(this.props.indentStr, indent) + curr;
+            } else if (!isInnerStr && (curr === " " || curr === "\t")) {
+                continue;
+            } else if (!isInnerStr && curr === ",") {
+                ret += curr + this.props.newLineStr + this.loopStr(this.props.indentStr, indent);
+            } else if (curr === '"' && prev !== "\\") {
+                isInnerStr = !isInnerStr;
+                ret += curr;
+            } else {
+                ret += curr;
+            }
+        }
+        return ret;
+    }
+};
+WindowsJScript.prototype.json = new WrapJson();
+
 js.init();
