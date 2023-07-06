@@ -250,6 +250,7 @@ WindowsJScript.prototype.hta = new WrapHtaControl();
 //----------------------------------------------
 var WrapCommand = function(){};
 WrapCommand.prototype = {
+	// prettier-ignore
 	HASHTYPE : {
 		MD5    : "MD5",
 		SHA1   : "SHA1",
@@ -315,6 +316,7 @@ WindowsJScript.prototype.cmd = new WrapCommand();
 //----------------------------------------------
 var WrapDialog = function(){ return this; };
 WrapDialog.prototype = {
+	// prettier-ignore
 	BUTTON : {
 		OK                : 0,
 		OK_CANCEL         : 1,
@@ -323,6 +325,7 @@ WrapDialog.prototype = {
 		YES_NO            : 4,
 		RETRY_CANCEL      : 5
 	},
+	// prettier-ignore
 	ICON : {
 		NONE        :  0,
 		STOP        : 16,
@@ -330,6 +333,7 @@ WrapDialog.prototype = {
 		EXCLAMAITON : 48,
 		INFO        : 64
 	},
+	// prettier-ignore
 	CHOOSE : {
 		OK     :  1,
 		CANCEL :  2,
@@ -423,6 +427,7 @@ WindowsJScript.prototype.dbg = new WrapDebug();
 //----------------------------------------------
 var WrapDate = function(){ return this; };
 WrapDate.prototype = {
+	// prettier-ignore
 	fmt : {
 		aaa  : function(dt){ return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][dt.getDay()]; },
 		YYYY : function(dt){ return String(dt.getFullYear()).substr(-4, 4); },
@@ -506,6 +511,7 @@ WindowsJScript.prototype.str = new WrapString();
 //----------------------------------------------
 var WrapPath = function(){ return this; };
 WrapPath.prototype = {
+	// prettier-ignore
 	TYPEIS : {
 		DIR  : 1,
 		FILE : 2,
@@ -644,20 +650,24 @@ WindowsJScript.prototype.path = new WrapPath();
 //----------------------------------------------
 var WrapFile = function(){ return this; };
 WrapFile.prototype = {
+	// prettier-ignore
 	OPENMODE : {
 		FORREAD   : 1,     // [default]
 		FORWRITE  : 2,
 		FORAPPEND : 8
 	},
+	// prettier-ignore
 	NOTHINGTHEN : {
 		CREATE :  true,
 		THROUGH : false    // [default]
 	},
+	// prettier-ignore
 	CHARCODE : {
 		UTF    : -1,
 		SJIS   : 0,        // [default]
 		SYSTEM : -2
 	},
+	// prettier-ignore
 	NEWLINECODE : {
 		CR   : "\r",
 		LF   : "\n",
@@ -902,6 +912,7 @@ WrapBook.prototype = {
 		js.echo(msg);
 		js.log.err(msg);
 	},
+	// prettier-ignore
 	defaultoptions : function(){
 		return {
 			NewBook            : false,
@@ -956,44 +967,57 @@ WindowsJScript.prototype.book = new WrapBook();
 var WrapJson = function () { return this; };
 WrapJson.prototype = {
     props: {
-        indentStr : "    ",
-        newLineStr : "\r\n"
+        indentStr: "    ",
+        newLineStr: "\r\n",
     },
-    loopStr : function (str, loop) {
-        var ret = "";
+    loopStr: function (str, loop) {
+        var ret = [];
         for (var i = 0; i < loop; i++) {
-            ret += str;
+            ret.push(str);
         }
-        return ret;
+        return ret.join("");
+    },
+    getIndent: function (indent) {
+        return this.loopStr(this.props.indentStr, indent);
+    },
+    anyEqual: function (str) {
+        var args = [].slice.call(arguments);
+        args.shift();
+        for (var i = 0; i < args.length; i++) {
+            if (str === args[i]) return true;
+        }
+        return false;
     },
     sharping: function (str) {
-        str = str.replace(/(\r?\n|\r)/g, "");
+        str = str.replace(/(\n|\r)/g, "");
         var len = str.length;
-        var ret = "";
+        var ret = [];
         var indent = 0;
-        var isInnerStr = false;
+        var isInnerValue = false;
         for (var i = 0; i < len; i++) {
             var curr = str.charAt(i);
             var prev = str.charAt(i - 1);
-            if (!isInnerStr && (curr === "{" || curr === "[")) {
-                indent++;
-                ret += curr + this.props.newLineStr + this.loopStr(this.props.indentStr, indent);
-            } else if (!isInnerStr && (curr === "}" || curr === "]")) {
-                indent--;
-                ret += this.props.newLineStr + this.loopStr(this.props.indentStr, indent) + curr;
-            } else if (!isInnerStr && (curr === " " || curr === "\t")) {
+            if (!isInnerValue && this.anyEqual(curr, " ", "\t")) {
                 continue;
-            } else if (!isInnerStr && curr === ",") {
-                ret += curr + this.props.newLineStr + this.loopStr(this.props.indentStr, indent);
+            } else if (!isInnerValue && curr === ",") {
+                ret.push(curr + this.props.newLineStr + this.getIndent(indent));
+            } else if (!isInnerValue && this.anyEqual(curr, "{", "[")) {
+                indent++;
+                ret.push(curr + this.props.newLineStr + this.getIndent(indent));
+            } else if (!isInnerValue && this.anyEqual(curr, "}", "]")) {
+                indent--;
+                ret.push(this.props.newLineStr + this.getIndent(indent) + curr);
+            } else if (!isInnerValue && curr === ':') {
+                ret.push(curr + " ");
             } else if (curr === '"' && prev !== "\\") {
-                isInnerStr = !isInnerStr;
-                ret += curr;
+                isInnerValue = !isInnerValue;
+                ret.push(curr);
             } else {
-                ret += curr;
+                ret.push(curr);
             }
         }
-        return ret;
-    }
+        return ret.join("");
+    },
 };
 WindowsJScript.prototype.json = new WrapJson();
 
