@@ -7,15 +7,23 @@
         <HTA:APPLICATION ID="thishta" />
         <script src="../wsf.js"></script>
         <script>
-            var shaping = function () {
-                var $i = document.querySelector("#iData");
-                var $o = document.querySelector("#oData");
+            var shaping = function (input, output) {
+                var $i = document.querySelector(input);
+                var $o = document.querySelector(output);
                 var shapingstr = $i.value;
-                var shapingstr = js.json.sharping(shapingstr);
-                $o.value = shapingstr;
+                setValue(output, js.json.sharping(shapingstr));
             };
-            var init = function () {
-                var $i = document.querySelector("#iData");
+            var getGridSample = function () {
+                var getGrid = function (key, description, type, sample) {
+                    return [key, description, type, sample].join("\t");
+                };
+                var sampleType = [
+                    getGrid("stringkey", "stringname", "string", "this is string"),
+                    getGrid("numberkey", "numbername", "number", 123)
+                ];
+                return sampleType.join("\r\n");
+            };
+            var getJsonSample = function () {
                 var sampleType = {
                     dateval: Date.now(),
                     strval: "string",
@@ -23,14 +31,14 @@
                     floatval: 123.4567,
                     nullval: null,
                     undefinedval: undefined,
-                    arrval: [1, 2, 3],
+                    arrval: [1, 2, 3]
                 };
                 var sampleValue = {
                     colon: "[:,;]",
                     brank: "[ ,　]",
                     tab: "[\t,	]",
                     sq: "[','']",
-                    dq: '[",""]',
+                    dq: '[",""]'
                 };
                 var dummyObjStr = JSON.stringify([sampleValue]);
                 var sampleEscape = [
@@ -42,32 +50,134 @@
                     "[ ]:&nbsp;",
                     "[¥]:&yen;",
                     "[©]:&copy;",
-                    "[®]:&reg;",
+                    "[®]:&reg;"
                 ];
                 var testJson = {
                     description: "json string sample.",
                     sampleType: sampleType,
                     sampleValue: sampleValue,
                     dummyObjStr: dummyObjStr,
-                    sampleEscape: sampleEscape,
+                    sampleEscape: sampleEscape
                 };
-                var jsonstr = JSON.stringify(testJson);
-                $i.value = jsonstr;
+                return JSON.stringify(testJson);
+            };
+            var setValue = function (selector, value) {
+                var $elem = document.querySelector(selector);
+                if ($elem.value != undefined) {
+                    $elem.value = value;
+                } else {
+                    $elem.innerHTML = value;
+                }
+            };
+            var getValue = function (selector) {
+                var $elem = document.querySelector(selector);
+                if ($elem.value != undefined) {
+                    return $elem.value;
+                } else {
+                    return $elem.innerHTML;
+                }
+            };
+            var setSampleJson = function (selector) {
+                setValue(selector, getJsonSample());
+            };
+            var setSampleGrid = function (selector) {
+                setValue(selector, getGridSample());
+            };
+            var clear = function (selector) {
+                setValue(selector, "");
+            };
+            var copy = function (selector) {
+                toclipboard(getValue(selector));
+            };
+            var toclipboard = function (text) {
+                var choise;
+                var res;
+
+                if (navigator.userAgent.match(/ipad|iphone/i)) {
+                    choise = "navigator.userAgent.match(/ipad|iphone/i)";
+                    var range = document.createRange();
+                    range.selectNodeContents(ta);
+                    var sel = window.getSelection();
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    res = document.execCommand("copy");
+                } else if (window.clipboardData) {
+                    choise = "window.clipboardData";
+                    res = window.clipboardData.setData("Text", text);
+                } else if (navigator.clipboard) {
+                    choise = "navigator.clipboard";
+                    res = navigator.clipboard.writeText(text);
+                } else {
+                    choise = "ta.select()";
+                    var ta = document.createElement("textarea");
+                    ta.value = text;
+                    ta.setAttribute("readonly", "readonly");
+                    ta.setAttribute("contenteditable", true);
+                    ta.style.top = "0";
+                    ta.style.left = "0";
+                    ta.style.position = "fixed";
+                    try {
+                        document.body.appendChild(ta);
+                        ta.focus();
+                        ta.select();
+                        res = document.execCommand("copy");
+                    } finally {
+                        document.body.removeChild(ta);
+                    }
+                }
+                if (!!!res) {
+                    window.prompt("Copy to clipboard: Ctrl+C, Enter", text);
+                }
+                // js.echo(js.str.format("toclipboard:${0}, text:${1}, case:${2}", res, text, choise));
+                return res;
             };
         </script>
         <style>
+            h2 {
+                font-size: 1em;
+                padding: 0;
+                margin: 0.5em 0 0.1em 0;
+                line-height: 1.5em;
+            }
+            input[type="button"] {
+                vertical-align: top;
+                height: 40px;
+                margin: 0 2px;
+                border: none;
+                border-radius: 10px;
+                padding: 0 0.5em;
+                background-color: darkcyan;
+                color: white;
+                cursor: pointer;
+            }
             textarea {
                 width: 100%;
             }
+            pre {
+                border: 1px solid gray;
+                width: 100%;
+                overflow-x: auto;
+            }
         </style>
     </head>
-    <body onLoad="init()">
+    <body>
         <div id="contents_area">
-            <p>整形前</p>
+            <h2>
+                整形前
+                <input type="button" value="クリア" onClick="clear('#iData')" />
+                <input type="button" value="JSONサンプル" onClick="setSampleJson('#iData')" />
+                <!-- <input type="button" value="GRIDサンプル" onClick="setSampleGrid('#iData')" /> -->
+            </h2>
             <textarea id="iData" style="margin-bottom: 1em; height: 10em"></textarea><br />
-            <input type="button" value="JSON整形" onClick="shaping()" /><br />
-            <p>整形後</p>
+            <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" /><br />
+            <h2>
+                整形後
+                <input type="button" value="クリア" onClick="clear('#oData')" />
+                <input type="button" value="コピー" onClick="copy('#oData')" />
+            </h2>
             <textarea id="oData" style="height: 30em"></textarea><br />
+            <!-- <pre id="oData" style="height: 30em"></pre> -->
+            <br />
         </div>
     </body>
 </html>

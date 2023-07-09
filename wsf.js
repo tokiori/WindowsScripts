@@ -1,5 +1,6 @@
 /*!
  * WindowsJScript
+ * https://github.com/tokiori/WindowsScripts
  *
  * Copyright (c) 2022 tokiori
  * This software is Released under the MIT license.
@@ -724,7 +725,7 @@ WrapFile.prototype = {
 					// 文字列を書き込む(改行あり)
 					stream.WriteLine(txt);
 				}
-//				//  ブランク行を二行書き込む
+//				//  ブランク行をN行書き込む
 //				stream.WriteBlankLines( 2 );
 
 				stream.Close();
@@ -968,7 +969,7 @@ var WrapJson = function () { return this; };
 WrapJson.prototype = {
     props: {
         indentStr: "    ",
-        newLineStr: "\r\n",
+        newLineStr: "\r\n"
     },
     loopStr: function (str, loop) {
         var ret = [];
@@ -1007,7 +1008,7 @@ WrapJson.prototype = {
             } else if (!isInnerValue && this.anyEqual(curr, "}", "]")) {
                 indent--;
                 ret.push(this.props.newLineStr + this.getIndent(indent) + curr);
-            } else if (!isInnerValue && curr === ':') {
+            } else if (!isInnerValue && curr === ":") {
                 ret.push(curr + " ");
             } else if (curr === '"' && prev !== "\\") {
                 isInnerValue = !isInnerValue;
@@ -1017,7 +1018,7 @@ WrapJson.prototype = {
             }
         }
         return ret.join("");
-    },
+    }
 };
 WindowsJScript.prototype.json = new WrapJson();
 
