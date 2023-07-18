@@ -13,6 +13,13 @@
                 var shapingstr = $i.value;
                 setValue(output, js.json.sharping(shapingstr));
             };
+            var filter = function (input, output, filter) {
+                var $i = document.querySelector(input);
+                var $o = document.querySelector(output);
+                var $f = document.querySelector(filter);
+                var shapingstr = $i.value;
+                setValue(output, js.json.filter(shapingstr, $f.value));
+            };
             var getGridSample = function () {
                 var getGrid = function (key, description, type, sample) {
                     return [key, description, type, sample].join("\t");
@@ -33,6 +40,34 @@
                     undefinedval: undefined,
                     arrval: [1, 2, 3]
                 };
+                var nestObj = {
+                    objkey_1_1: "objval_1_1",
+                    objkey_1_2: "objval_1_2",
+                    objnest_1_1: {
+                        objkey_2_1: "objval_2_1",
+                        objnest_2_1: {
+                            objkey_3_1: "objval_3_1",
+                            objnest_3_1: {
+                                objkey_4_1: "objval4_1"
+                            }
+                        }
+                    }
+                };
+                var nestArr = [
+                    "arrnest1_1",
+                    "arrnest1_2",
+                    [
+                        "arrnest2_1",
+                        [
+                            "arrnest3_1",
+                            "arrnest3_2",
+                            "arrnest3_3",
+                            [
+                                "arrnest4_1",
+                            ]
+                        ]
+                    ]
+                ];
                 var sampleValue = {
                     colon: "[:,;]",
                     brank: "[ ,　]",
@@ -56,6 +91,8 @@
                     description: "json string sample.",
                     sampleType: sampleType,
                     sampleValue: sampleValue,
+                    nestObj: nestObj,
+                    nestArr: nestArr,
                     dummyObjStr: dummyObjStr,
                     sampleEscape: sampleEscape
                 };
@@ -153,6 +190,10 @@
             textarea {
                 width: 100%;
             }
+            #fRegex {
+                border:1px solid #999999;
+                padding:5px;
+            }
             pre {
                 border: 1px solid gray;
                 width: 100%;
@@ -163,15 +204,17 @@
     <body>
         <div id="contents_area">
             <h2>
-                整形前
+                処理前
                 <input type="button" value="クリア" onClick="clear('#iData')" />
                 <input type="button" value="JSONサンプル" onClick="setSampleJson('#iData')" />
                 <!-- <input type="button" value="GRIDサンプル" onClick="setSampleGrid('#iData')" /> -->
             </h2>
             <textarea id="iData" style="margin-bottom: 1em; height: 10em"></textarea><br />
-            <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" /><br />
+            <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" />
+            <input id="fRegex" type="text" value=".*val.*" />
+            <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" /><br />
             <h2>
-                整形後
+                処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
                 <input type="button" value="コピー" onClick="copy('#oData')" />
             </h2>

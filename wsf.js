@@ -968,7 +968,8 @@ WindowsJScript.prototype.book = new WrapBook();
 var WrapJson = function () { return this; };
 WrapJson.prototype = {
     props: {
-        indentStr: "    ",
+        indentStr: " ",
+        indentLen: 4,
         newLineStr: "\r\n"
     },
     loopStr: function (str, loop) {
@@ -979,7 +980,7 @@ WrapJson.prototype = {
         return ret.join("");
     },
     getIndent: function (indent) {
-        return this.loopStr(this.props.indentStr, indent);
+        return this.loopStr(this.props.indentStr, indent * this.props.indentLen);
     },
     anyEqual: function (str) {
         var args = [].slice.call(arguments);
@@ -1018,6 +1019,72 @@ WrapJson.prototype = {
             }
         }
         return ret.join("");
+    },
+    filter: function (str, key) {
+		return this.filterString(str, key);
+    },
+    filterString: function (str, key) {
+		var rows = this.sharping(str).split(this.props.newLineStr);
+        var res = [];
+        var pushed = [];
+        var current = [];
+        var findRegex = new RegExp(key, "i");
+        var self = this;
+        var indentRegex = new RegExp("^" + this.props.indentStr + "+");
+        var closeNest = function () {
+            var m = 0;
+            for (; m < pushed.length && m < current.length; m++) {
+                if (pushed[m] != current[m]) break;
+            }
+            while (m < pushed.length) {
+                var poped = pushed.pop();
+                if (poped.match(/\[ *$/)) {
+                    res.push(self.getIndent(pushed.length) + "],");
+                } else if (poped.match(/\{ *$/)) {
+                    res.push(self.getIndent(pushed.length) + "},");
+                }
+            }
+        };
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var currIndent = row.match(indentRegex);
+            var rowNest = currIndent ? currIndent[0].length / this.props.indentLen : 0;
+
+			if (current.length == rowNest + 1) {
+                current[rowNest] = row;
+            } else if (current.length < rowNest + 1) {
+                current.push(row);
+                current[rowNest] = row;
+            } else if (current.length > rowNest + 1) {
+                current.pop();
+                current[rowNest] = row;
+            }
+
+			if (!row.match(findRegex)) {
+                continue;
+            }
+            closeNest();
+            for (var pushNest = 0; pushNest < current.length; pushNest++) {
+                if (pushed.length < pushNest || pushed[pushNest] != current[pushNest]) {
+                    res.push(current[pushNest]);
+                    pushed[pushNest] = current[pushNest];
+                }
+            }
+        }
+        closeNest();
+        for (var i = 0; i < res.length - 1; i++) {
+            var currIndent = res[i].match(indentRegex);
+            var currNest = currIndent ? currIndent[0].length : 0;
+            var nextIndent = res[i + 1].match(indentRegex);
+            var nextNest = nextIndent ? nextIndent[0].length : 0;
+            if (currNest != nextNest) {
+                res[i] = res[i].replace(/,? *$/, "");
+            }
+            if (i == res.length - 2) {
+                res[i + 1] = res[i + 1].replace(/,? *$/, "");
+            }
+        }
+        return res.join(this.props.newLineStr);
     }
 };
 WindowsJScript.prototype.json = new WrapJson();
