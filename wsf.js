@@ -1021,55 +1021,92 @@ WrapJson.prototype = {
         return ret.join("");
     },
     filter: function (str, key) {
-		return this.filterString(str, key);
+        // return this.filterString(str, key);
+        return this.filterObject(str, key);
+    },
+    filterObject: function (str, key) {
+        if (!str || String(str).length == 0) return "";
+        var jsonObj = JSON.parse(str);
+        var findRegex = new RegExp(key, "i");
+        var res = this.recursiveFillter(jsonObj, findRegex);
+        return this.sharping(JSON.stringify(res.data));
+    },
+    recursiveFillter: function (value, keyword) {
+        if (Object.prototype.toString.call(value) === "[object Array]") {
+            var arr = [];
+            for (var i in value) {
+                var res = this.recursiveFillter(value[i], keyword);
+                // contains keyword in value then append item
+                if (res.isMatch) arr.push(res.data);
+            }
+            return { isMatch: arr.length, data: arr };
+        } else if (Object.prototype.toString.call(value) === "[object Object]") {
+            var obj = {};
+            for (var i in value) {
+                var res = this.recursiveFillter(value[i], keyword);
+                // contains keyword in value then append item
+                if (res.isMatch) obj[i] = res.data;
+                // contains keyword in key then append item
+                if (String(i).match(keyword)) obj[i] = res.data;
+            }
+            return { isMatch: Object.keys(obj).length, data: obj };
+        }
+        return { isMatch: String(value).match(keyword), data: value };
     },
     filterString: function (str, key) {
-		var rows = this.sharping(str).split(this.props.newLineStr);
+        // TODO: I want to add closing brackets.
+        var rows = this.sharping(str).split(this.props.newLineStr);
         var res = [];
-        var pushed = [];
+        var printed = [];
         var current = [];
         var findRegex = new RegExp(key, "i");
         var self = this;
         var indentRegex = new RegExp("^" + this.props.indentStr + "+");
         var closeNest = function () {
             var m = 0;
-            for (; m < pushed.length && m < current.length; m++) {
-                if (pushed[m] != current[m]) break;
+            for (; m < printed.length && m < current.length; m++) {
+                if (printed[m] != current[m]) break;
             }
-            while (m < pushed.length) {
-                var poped = pushed.pop();
+            while (m < printed.length) {
+                var poped = printed.pop();
                 if (poped.match(/\[ *$/)) {
-                    res.push(self.getIndent(pushed.length) + "],");
+                    res.push(self.getIndent(printed.length) + "],");
                 } else if (poped.match(/\{ *$/)) {
-                    res.push(self.getIndent(pushed.length) + "},");
+                    res.push(self.getIndent(printed.length) + "},");
                 }
             }
         };
+        var prevNest = 0;
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var currIndent = row.match(indentRegex);
-            var rowNest = currIndent ? currIndent[0].length / this.props.indentLen : 0;
+            var currNest = currIndent ? currIndent[0].length / this.props.indentLen : 0;
 
-			if (current.length == rowNest + 1) {
-                current[rowNest] = row;
-            } else if (current.length < rowNest + 1) {
+            if (current.length == currNest + 1) {
+                current[currNest] = row;
+            } else if (current.length < currNest + 1) {
                 current.push(row);
-                current[rowNest] = row;
-            } else if (current.length > rowNest + 1) {
+                current[currNest] = row;
+            } else if (current.length > currNest) {
                 current.pop();
-                current[rowNest] = row;
+                current[currNest] = row;
             }
+            if (prevNest > currNest) {
+                printed.pop();
+            }
+            var isMatch = row.match(findRegex);
 
-			if (!row.match(findRegex)) {
+            if (!isMatch) {
                 continue;
             }
             closeNest();
             for (var pushNest = 0; pushNest < current.length; pushNest++) {
-                if (pushed.length < pushNest || pushed[pushNest] != current[pushNest]) {
+                if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
                     res.push(current[pushNest]);
-                    pushed[pushNest] = current[pushNest];
+                    printed[pushNest] = current[pushNest];
                 }
             }
+            prevNest = currNest;
         }
         closeNest();
         for (var i = 0; i < res.length - 1; i++) {
