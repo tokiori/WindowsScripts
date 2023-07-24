@@ -979,8 +979,8 @@ WrapJson.prototype = {
         }
         return ret.join("");
     },
-    getIndent: function (indent) {
-        return this.loopStr(this.props.indentStr, indent * this.props.indentLen);
+    getIndent: function (nest) {
+        return this.loopStr(this.props.indentStr, nest * this.props.indentLen);
     },
     anyEqual: function (str) {
         var args = [].slice.call(arguments);
@@ -994,7 +994,7 @@ WrapJson.prototype = {
         str = str.replace(/(\n|\r)/g, "");
         var len = str.length;
         var ret = [];
-        var indent = 0;
+        var nest = 0;
         var isInnerValue = false;
         for (var i = 0; i < len; i++) {
             var curr = str.charAt(i);
@@ -1002,13 +1002,13 @@ WrapJson.prototype = {
             if (!isInnerValue && this.anyEqual(curr, " ", "\t")) {
                 continue;
             } else if (!isInnerValue && curr === ",") {
-                ret.push(curr + this.props.newLineStr + this.getIndent(indent));
+                ret.push(curr + this.props.newLineStr + this.getIndent(nest));
             } else if (!isInnerValue && this.anyEqual(curr, "{", "[")) {
-                indent++;
-                ret.push(curr + this.props.newLineStr + this.getIndent(indent));
+                nest++;
+                ret.push(curr + this.props.newLineStr + this.getIndent(nest));
             } else if (!isInnerValue && this.anyEqual(curr, "}", "]")) {
-                indent--;
-                ret.push(this.props.newLineStr + this.getIndent(indent) + curr);
+                nest--;
+                ret.push(this.props.newLineStr + this.getIndent(nest) + curr);
             } else if (!isInnerValue && curr === ":") {
                 ret.push(curr + " ");
             } else if (curr === '"' && prev !== "\\") {
@@ -1020,30 +1020,30 @@ WrapJson.prototype = {
         }
         return ret.join("");
     },
-    filter: function (str, key) {
-        return this.filterString(str, key);
+    filter: function (str, key, condition) {
+        if (!str || str.replace(/ +/, "").length == 0) return "";
+        return this.filterString(str, key, condition);
         // return this.filterObject(str, key);
     },
     filterObject: function (str, key) {
         if (!str || String(str).length == 0) return "";
         var jsonObj = JSON.parse(str);
         var findRegex = new RegExp(key, "i");
-        var res = this.recursiveFillter(jsonObj, findRegex);
+        var res = this.filterObjectRecursive(jsonObj, findRegex);
         return this.sharping(JSON.stringify(res.data));
     },
-    recursiveFillter: function (value, keyword) {
+    filterObjectRecursive: function (value, keyword) {
         if (Object.prototype.toString.call(value) === "[object Array]") {
             var arr = [];
             for (var i in value) {
-                var res = this.recursiveFillter(value[i], keyword);
-                // contains keyword in value then append item
+                var res = this.filterObjectRecursive(value[i], keyword);
                 if (res.isMatch) arr.push(res.data);
             }
             return { isMatch: arr.length, data: arr };
         } else if (Object.prototype.toString.call(value) === "[object Object]") {
             var obj = {};
             for (var i in value) {
-                var res = this.recursiveFillter(value[i], keyword);
+                var res = this.filterObjectRecursive(value[i], keyword);
                 // contains keyword in value then append item
                 if (res.isMatch) obj[i] = res.data;
                 // contains keyword in key then append item
@@ -1053,53 +1053,16 @@ WrapJson.prototype = {
         }
         return { isMatch: String(value).match(keyword), data: value };
     },
-    filterString: function (str, key) {
-        // TODO: I want to add closing brackets.
+    filterString: function (str, key, condition) {
         var rows = this.sharping(str).split(this.props.newLineStr);
         var res = [];
         var printed = [];
         var current = [];
         var findRegex = new RegExp(key, "i");
-        var self = this;
-        var indentRegex = new RegExp("^" + this.props.indentStr + "+");
 
-		var printCloseNest = function(){
-			var poped = printed.pop();
-			if (poped.match(/\[ *$/)) {
-				res.push(self.getIndent(printed.length) + "],");
-			} else if (poped.match(/\{ *$/)) {
-				res.push(self.getIndent(printed.length) + "},");
-			}
-		};
-
-		var printParentNest = function(){
-            for (var pushNest = 0; pushNest < current.length; pushNest++) {
-                if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
-                    res.push(current[pushNest]);
-                    printed[pushNest] = current[pushNest];
-                }
-            }
-		};
-
-		var sharpingSuffix = function(){
-			for (var i = 0; i < res.length - 1; i++) {
-				var currIndent = res[i].match(indentRegex);
-				var currNest = currIndent ? currIndent[0].length : 0;
-				var nextIndent = res[i + 1].match(indentRegex);
-				var nextNest = nextIndent ? nextIndent[0].length : 0;
-				if (currNest != nextNest) {
-					res[i] = res[i].replace(/,? *$/, "");
-				}
-				if (i == res.length - 2) {
-					res[i + 1] = res[i + 1].replace(/,? *$/, "");
-				}
-			}
-		};
-
-		for (var i = 0; i < rows.length; i++) {
+        for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
-            var currIndent = row.match(indentRegex);
-            var currNest = currIndent ? currIndent[0].length / this.props.indentLen : 0;
+            var currNest = this.getNestLevel(row);
 
             if (current.length == currNest + 1) {
                 current[currNest] = row;
@@ -1110,15 +1073,50 @@ WrapJson.prototype = {
                 current.pop();
                 current[currNest] = row;
             }
-			if (printed.length>currNest){
-				printCloseNest();
-			}
-			if(row.match(findRegex)){
-				printParentNest();
-			};
+            if (printed.length > currNest) {
+                this.setCloseNest(res, printed);
+            }
+            if (condition.looseMatcher) {
+                row = row.replace(/^ +/, "").replace(/\"/g, "");
+            }
+            if (row.match(findRegex)) {
+                this.setParentNest(res, printed, current);
+            }
         }
-		sharpingSuffix();
-        return res.join(this.props.newLineStr);
+        return this.trimLastChildComma(res).join(this.props.newLineStr);
+    },
+    setParentNest: function (res, printed, current) {
+        for (var pushNest = 0; pushNest < current.length; pushNest++) {
+            if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
+                res.push(current[pushNest]);
+                printed[pushNest] = current[pushNest];
+            }
+        }
+    },
+    setCloseNest: function (res, printed) {
+        var poped = printed.pop();
+        if (poped.match(/\[ *$/)) {
+            res.push(this.getIndent(printed.length) + "],");
+        } else if (poped.match(/\{ *$/)) {
+            res.push(this.getIndent(printed.length) + "},");
+        }
+    },
+    getNestLevel: function (row) {
+        var indentRegex = new RegExp("^" + this.props.indentStr + "+");
+        var matchIndent = row.match(indentRegex);
+        return matchIndent ? matchIndent[0].length / this.props.indentLen : 0;
+    },
+    trimLastChildComma: function (rows) {
+        if (rows.length == 0) return rows;
+        var res = [];
+        for (var i = 0; i < rows.length - 1; i++) {
+            var curr = this.getNestLevel(rows[i]);
+            var next = this.getNestLevel(rows[i + 1]);
+            var row = curr != next ? rows[i].replace(/,? *$/, "") : rows[i];
+            res.push(row);
+        }
+        res.push(rows[rows.length - 1].replace(/,? *$/, ""));
+        return res;
     }
 };
 WindowsJScript.prototype.json = new WrapJson();
