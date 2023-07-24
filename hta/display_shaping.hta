@@ -9,16 +9,18 @@
         <script>
             var shaping = function (input, output) {
                 var $i = document.querySelector(input);
-                var $o = document.querySelector(output);
-                var shapingstr = $i.value;
-                setValue(output, js.json.sharping(shapingstr));
+                setValue(output, js.json.sharping($i.value));
+            };
+            var getFilterCondition = function () {
+                var $l = document.querySelector("#looseMatcher");
+                var condition = {};
+                condition.looseMatcher = $l.checked;
+                return condition;
             };
             var filter = function (input, output, filter) {
                 var $i = document.querySelector(input);
-                var $o = document.querySelector(output);
                 var $f = document.querySelector(filter);
-                var shapingstr = $i.value;
-                setValue(output, js.json.filter(shapingstr, $f.value));
+                setValue(output, js.json.filter($i.value, $f.value, getFilterCondition()));
             };
             var getGridSample = function () {
                 var getGrid = function (key, description, type, sample) {
@@ -53,25 +55,15 @@
                 var nestArr = [
                     "arrnest1_1",
                     "arrnest1_2",
-                    [
-                        "arrnest2_1",
-                        "arrnest2_2",
-                        "arrnest2_3",
-                        [
-                            "arrnest3_1",
-                            [
-                                "arrnest4_a",
-                            ]
-                        ]
-                    ],
-                    {"arrinobj1":"duplicateval_1"},
-                    {"arrinobj2":"duplicateval_2"},
-                    {"arrinobj1":"duplicateval_1"},
-                    {"arrinobj2":"duplicateval_2"},
-                    {"arrinobj1":"duplicateval_a"},
-                    {"arrinobj2":"duplicateval_b"},
-                    {"arrinobj3":"duplicateval_3"},
-                    {"arrinobj3":"duplicateval_3"}
+                    ["arrnest2_1", "arrnest2_2", "arrnest2_3", ["arrnest3_1", ["arrnest4_a"]]],
+                    { arrinobj1: "duplicateval_1" },
+                    { arrinobj2: "duplicateval_2" },
+                    { arrinobj1: "duplicateval_1" },
+                    { arrinobj2: "duplicateval_2" },
+                    { arrinobj1: "duplicateval_a" },
+                    { arrinobj2: "duplicateval_b" },
+                    { arrinobj3: "duplicateval_3" },
+                    { arrinobj3: "duplicateval_3" }
                 ];
                 var sampleValue = {
                     colon: "[:,;]",
@@ -196,9 +188,9 @@
             }
             #fRegex {
                 margin-left: 2em;
-                border:1px solid #999999;
-                padding:5px;
-                width:20em;
+                border: 1px solid #999999;
+                padding: 5px;
+                width: 20em;
             }
             pre {
                 border: 1px solid gray;
@@ -219,8 +211,8 @@
             <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" />
             <input id="fRegex" type="text" value="val.*\d" />
             <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
-            （hint：前方一致/^keyword/、後方一致/keyword$/）
-            <br />
+            <input type="checkbox" id="looseMatcher" checked />
+            <label for="looseMatcher">囲み文字とインデントを無視</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
