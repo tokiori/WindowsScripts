@@ -1021,8 +1021,8 @@ WrapJson.prototype = {
         return ret.join("");
     },
     filter: function (str, key) {
-        // return this.filterString(str, key);
-        return this.filterObject(str, key);
+        return this.filterString(str, key);
+        // return this.filterObject(str, key);
     },
     filterObject: function (str, key) {
         if (!str || String(str).length == 0) return "";
@@ -1062,22 +1062,41 @@ WrapJson.prototype = {
         var findRegex = new RegExp(key, "i");
         var self = this;
         var indentRegex = new RegExp("^" + this.props.indentStr + "+");
-        var closeNest = function () {
-            var m = 0;
-            for (; m < printed.length && m < current.length; m++) {
-                if (printed[m] != current[m]) break;
-            }
-            while (m < printed.length) {
-                var poped = printed.pop();
-                if (poped.match(/\[ *$/)) {
-                    res.push(self.getIndent(printed.length) + "],");
-                } else if (poped.match(/\{ *$/)) {
-                    res.push(self.getIndent(printed.length) + "},");
+
+		var printCloseNest = function(){
+			var poped = printed.pop();
+			if (poped.match(/\[ *$/)) {
+				res.push(self.getIndent(printed.length) + "],");
+			} else if (poped.match(/\{ *$/)) {
+				res.push(self.getIndent(printed.length) + "},");
+			}
+		};
+
+		var printParentNest = function(){
+            for (var pushNest = 0; pushNest < current.length; pushNest++) {
+                if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
+                    res.push(current[pushNest]);
+                    printed[pushNest] = current[pushNest];
                 }
             }
-        };
-        var prevNest = 0;
-        for (var i = 0; i < rows.length; i++) {
+		};
+
+		var sharpingSuffix = function(){
+			for (var i = 0; i < res.length - 1; i++) {
+				var currIndent = res[i].match(indentRegex);
+				var currNest = currIndent ? currIndent[0].length : 0;
+				var nextIndent = res[i + 1].match(indentRegex);
+				var nextNest = nextIndent ? nextIndent[0].length : 0;
+				if (currNest != nextNest) {
+					res[i] = res[i].replace(/,? *$/, "");
+				}
+				if (i == res.length - 2) {
+					res[i + 1] = res[i + 1].replace(/,? *$/, "");
+				}
+			}
+		};
+
+		for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var currIndent = row.match(indentRegex);
             var currNest = currIndent ? currIndent[0].length / this.props.indentLen : 0;
@@ -1091,36 +1110,14 @@ WrapJson.prototype = {
                 current.pop();
                 current[currNest] = row;
             }
-            if (prevNest > currNest) {
-                printed.pop();
-            }
-            var isMatch = row.match(findRegex);
-
-            if (!isMatch) {
-                continue;
-            }
-            closeNest();
-            for (var pushNest = 0; pushNest < current.length; pushNest++) {
-                if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
-                    res.push(current[pushNest]);
-                    printed[pushNest] = current[pushNest];
-                }
-            }
-            prevNest = currNest;
+			if (printed.length>currNest){
+				printCloseNest();
+			}
+			if(row.match(findRegex)){
+				printParentNest();
+			};
         }
-        closeNest();
-        for (var i = 0; i < res.length - 1; i++) {
-            var currIndent = res[i].match(indentRegex);
-            var currNest = currIndent ? currIndent[0].length : 0;
-            var nextIndent = res[i + 1].match(indentRegex);
-            var nextNest = nextIndent ? nextIndent[0].length : 0;
-            if (currNest != nextNest) {
-                res[i] = res[i].replace(/,? *$/, "");
-            }
-            if (i == res.length - 2) {
-                res[i + 1] = res[i + 1].replace(/,? *$/, "");
-            }
-        }
+		sharpingSuffix();
         return res.join(this.props.newLineStr);
     }
 };
