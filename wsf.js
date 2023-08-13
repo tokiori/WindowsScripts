@@ -1063,7 +1063,7 @@ WrapJson.prototype = {
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var currNest = this.getNestLevel(row);
-			var keyval = this.splitKeyValue(row);
+            var keyval = this.splitKeyValue(row);
             if (current.length == currNest + 1) {
                 current[currNest] = row;
             } else if (current.length < currNest + 1) {
@@ -1077,9 +1077,9 @@ WrapJson.prototype = {
                 this.setCloseNest(res, printed);
             }
             if (condition.matchPattern === "keyOnly") {
-				row = keyval.key;
+                row = keyval.key;
             } else if (condition.matchPattern === "valueOnly") {
-				row = keyval.value;
+                row = keyval.value;
             }
             if (condition.looseMatcher) {
                 row = row.replace(/^ +/, "").replace(/\"/g, "");
@@ -1090,14 +1090,14 @@ WrapJson.prototype = {
         }
         return this.trimLastChildComma(res).join(this.props.newLineStr);
     },
-	splitKeyValue : function(str){
-		var ret = {key:"", value:""};
-		rowsplit = str.replace(/^( *\"[^:]+\") *: *(.*) *$/, function(m, s1, s2){
-			ret.key = s1;
-			ret.value = s2;
-		})
-		return ret;
-	},
+    splitKeyValue: function (str) {
+        var ret = { key: "", value: "" };
+        rowsplit = str.replace(/^( *\"[^:]+\") *: *(.*) *$/, function (m, s1, s2) {
+            ret.key = s1;
+            ret.value = s2;
+        });
+        return ret;
+    },
     setParentNest: function (res, printed, current) {
         for (var pushNest = 0; pushNest < current.length; pushNest++) {
             if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
