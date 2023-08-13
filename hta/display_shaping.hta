@@ -15,6 +15,8 @@
                 var $l = document.querySelector("#looseMatcher");
                 var condition = {};
                 condition.looseMatcher = $l.checked;
+                var $p = document.querySelector("input[name=matchPattern]:checked");
+                condition.matchPattern = $p.value;
                 return condition;
             };
             var filter = function (input, output, filter) {
@@ -213,6 +215,13 @@
             <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
             <input type="checkbox" id="looseMatcher" checked />
             <label for="looseMatcher">囲み文字とインデントを無視</label>
+            <span style="margin-left: 2em;">検索対象：</span>
+            <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
+            <label for="keyOrValue">すべて</label>
+            <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />
+            <label for="keyOnly">KEYのみ</label>
+            <input type="radio" name="matchPattern" id="valueOnly" value="valueOnly" />
+            <label for="valueOnly">VALUEのみ</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
