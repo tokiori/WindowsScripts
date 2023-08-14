@@ -1158,15 +1158,19 @@ WrapJson.prototype = {
     },
     findString: function (str, findRegex, condition) {
         var ret = { match: false, row: "" };
+		var self = this;
         ret.row = str.replace(findRegex, function (m, s) {
             ret.match = true;
             if (condition.strongMatchWord) {
-                return "<span class='strongMatchWord'>" + m + "</span>";
+				return self.getStrongTag(m);
             }
             return m;
         });
         return ret;
     },
+	getStrongTag: function (str){
+		return "<span class='strongMatchWord'>" + str + "</span>";
+	},
     splitKeyValue: function (str) {
         var ret = { key: "", value: "", base: str, isSplit: false };
         str.replace(/^( *\"[^:]+\" *):(.*)$/, function (m, s1, s2) {
@@ -1186,9 +1190,13 @@ WrapJson.prototype = {
     },
     pushCloseNest: function (res, printed) {
         var poped = printed.pop();
-        if (poped.match(/\[ *$/)) {
+		var matcher = {
+			closeArr : /\[ *(\<\/span\>)? *$/,
+			closeObj : /\{ *(\<\/span\>)? *$/
+		}
+		if (poped.match(matcher.closeArr)) {
             res.push(this.getIndent(printed.length) + "],");
-        } else if (poped.match(/\{ *$/)) {
+        } else if (poped.match(matcher.closeObj)) {
             res.push(this.getIndent(printed.length) + "},");
         }
     },
