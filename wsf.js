@@ -1016,6 +1016,8 @@ WrapJson.prototype = {
                 ret.push(this.props.newLineStr + this.getIndent(nest) + curr);
             } else if (!isInnerValue && curr === ":") {
                 ret.push(curr + " ");
+            } else if (isInnerValue && curr === "&") {
+                ret.push("&amp;");
             } else if (curr === '"' && prev !== "\\") {
                 isInnerValue = !isInnerValue;
                 ret.push(curr);
@@ -1095,7 +1097,7 @@ WrapJson.prototype = {
         var res = [];
         var printed = [];
         var current = [];
-        var findRegex = new RegExp(key, "i");
+        var findRegex = new RegExp(key, "gi");
 
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
@@ -1119,28 +1121,39 @@ WrapJson.prototype = {
                 this.pushParentNest(res, printed, current);
             }
         }
+        this.pushCloseNest(res, printed);
         return this.trimLastChildComma(res).join(this.props.newLineStr);
     },
     findRow: function (splitRow, findRegex, condition) {
+        if (condition.simpleCharSearch) {
+            return this.findString(splitRow.base, findRegex, condition);
+        }
         var ret = { match: false, row: "" };
-        if (condition.simpleCharSearch || !splitRow.isSplit) {
+        if (splitRow.isGrouping && splitRow.isSplit && condition.matchPattern !== "valueOnly") {
+            ret = this.findRowOnlyKey(splitRow, findRegex, condition);
+        } else if (splitRow.isGrouping) {
+            ret.row = splitRow.base;
+        } else if (!splitRow.isSplit && condition.matchPattern !== "keyOnly") {
             ret = this.findString(splitRow.base, findRegex, condition);
         } else if (condition.matchPattern === "keyOnly") {
-            var res = this.findStringByMatcher(splitRow.key, findRegex, condition);
-            ret.match = res.match;
-            ret.row = res.row + ":" + splitRow.value;
+            ret = this.findRowOnlyKey(splitRow, findRegex, condition);
         } else if (condition.matchPattern === "valueOnly") {
-            var res = this.findStringByMatcher(splitRow.value, findRegex, condition);
-            ret.match = res.match;
-            ret.row = splitRow.key + ":" + res.row;
+            ret = this.findRowOnlyValue(splitRow, findRegex, condition);
         } else {
             var resKey = this.findStringByMatcher(splitRow.key, findRegex, condition);
             var resVal = this.findStringByMatcher(splitRow.value, findRegex, condition);
             ret.match = resKey.match || resVal.match;
             ret.row = resKey.row + ":" + resVal.row;
         }
-		ret.row = ret.row;
         return ret;
+    },
+    findRowOnlyKey: function (splitRow, findRegex, condition) {
+        var res = this.findStringByMatcher(splitRow.key, findRegex, condition);
+        return { match: res.match, row: res.row + ":" + splitRow.value };
+    },
+    findRowOnlyValue: function (splitRow, findRegex, condition) {
+        var res = this.findStringByMatcher(splitRow.value, findRegex, condition);
+        return { match: res.match, row: splitRow.key + ":" + res.row };
     },
     findStringByMatcher: function (str, findRegex, condition) {
         var self = this;
@@ -1158,26 +1171,27 @@ WrapJson.prototype = {
     },
     findString: function (str, findRegex, condition) {
         var ret = { match: false, row: "" };
-		var self = this;
-        ret.row = str.replace(findRegex, function (m, s) {
+        var self = this;
+        ret.row = str.replace(/\&amp;/g, "&").replace(findRegex, function (m, s) {
             ret.match = true;
             if (condition.strongMatchWord) {
-				return self.getStrongTag(m);
+                return "<span class='strongMatchWord'>" + m + "</span>";
             }
             return m;
         });
+        ret.row = ret.row.replace(/\&/g, "&amp;");
         return ret;
     },
-	getStrongTag: function (str){
-		return "<span class='strongMatchWord'>" + str + "</span>";
-	},
     splitKeyValue: function (str) {
-        var ret = { key: "", value: "", base: str, isSplit: false };
+        var ret = { key: "", value: "", base: str, isSplit: false, isGrouping: false };
         str.replace(/^( *\"[^:]+\" *):(.*)$/, function (m, s1, s2) {
             ret.isSplit = true;
             ret.key = s1;
             ret.value = s2;
         });
+        if (str.match(/ *([\{\[]|[\}\]]) *,? *$/)) {
+            ret.isGrouping = true;
+        }
         return ret;
     },
     pushParentNest: function (res, printed, current) {
@@ -1189,12 +1203,13 @@ WrapJson.prototype = {
         }
     },
     pushCloseNest: function (res, printed) {
+        if (!printed.length) return;
         var poped = printed.pop();
-		var matcher = {
-			closeArr : /\[ *(\<\/span\>)? *$/,
-			closeObj : /\{ *(\<\/span\>)? *$/
-		}
-		if (poped.match(matcher.closeArr)) {
+        var matcher = {
+            closeArr: /\[ *(\<\/span\>)? *$/,
+            closeObj: /\{ *(\<\/span\>)? *$/
+        };
+        if (poped.match(matcher.closeArr)) {
             res.push(this.getIndent(printed.length) + "],");
         } else if (poped.match(matcher.closeObj)) {
             res.push(this.getIndent(printed.length) + "},");

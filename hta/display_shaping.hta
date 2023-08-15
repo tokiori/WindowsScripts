@@ -262,7 +262,7 @@
             </h2>
             <textarea id="iData" style="margin-bottom: 1em; height: 10em"></textarea><br />
             <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" />
-            <input id="fRegex" type="text" value="(key|val).*\d" />
+            <input id="fRegex" type="text" value="(key|val).*\d|&|\[" />
             <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
             <span style="margin-left: 1em">オプション：</span>
             <input type="checkbox" id="strongMatchWord" checked />
@@ -273,15 +273,14 @@
             <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
             <label for="keyOrValue" class="labelForRadio">すべて</label>
             <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />
-            <label for="keyOnly" class="labelForRadio">KEYのみ</label>
+            <label for="keyOnly" class="labelForRadio">キーのみ</label>
             <input type="radio" name="matchPattern" id="valueOnly" value="valueOnly" />
-            <label for="valueOnly" class="labelForRadio">VALUEのみ</label>
+            <label for="valueOnly" class="labelForRadio">値のみ</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
                 <input type="button" value="コピー" onClick="copy('#oData')" />
             </h2>
-            <!-- <textarea id="oData" style="height: 30em"></textarea><br /> -->
             <pre id="oData"></pre>
             <br />
         </div>
