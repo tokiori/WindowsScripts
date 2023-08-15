@@ -7,6 +7,18 @@
         <HTA:APPLICATION ID="thishta" />
         <script src="../wsf.js"></script>
         <script>
+            var keys = {
+                simpleCharSearch : "#simpleCharSearch",
+                vagueAlphabetCase: "#vagueAlphabetCase",
+                strongMatchWord: "#strongMatchWord",
+                matchPattern: "input[name=matchPattern]:checked",
+                keyOrVal : "#keyOrValue",
+                valOnly : "#valueOnly",
+                keyOnly : "#keyOnly",
+            };
+            var $el = function(selector){
+                return document.querySelector(selector);
+            };
             var init = function () {
                 handleChangeSimpleCharSearch();
             };
@@ -15,29 +27,22 @@
                 setValue(output, js.json.sharping($i.value));
             };
             var handleChangeSimpleCharSearch = function () {
-                var $l = document.querySelector("#simpleCharSearch");
-                var $kv = document.querySelector("#keyOrValue");
-                var $vo = document.querySelector("#valueOnly");
-                var $ko = document.querySelector("#keyOnly");
-                if ($l.checked) {
-                    $vo.setAttribute("disabled", "disabled");
-                    $ko.setAttribute("disabled", "disabled");
-                    $kv.setAttribute("disabled", "disabled");
-                    // $kv.checked=true;
+                if ($el(keys.simpleCharSearch).checked) {
+                    $el(keys.valOnly).setAttribute("disabled", "disabled");
+                    $el(keys.keyOnly).setAttribute("disabled", "disabled");
+                    $el(keys.keyOrVal).setAttribute("disabled", "disabled");
                 } else {
-                    $vo.removeAttribute("disabled");
-                    $ko.removeAttribute("disabled");
-                    $kv.removeAttribute("disabled");
+                    $el(keys.valOnly).removeAttribute("disabled");
+                    $el(keys.keyOnly).removeAttribute("disabled");
+                    $el(keys.keyOrVal).removeAttribute("disabled");
                 }
             };
             var getFilterCondition = function () {
                 var condition = {};
-                var $l = document.querySelector("#simpleCharSearch");
-                condition.simpleCharSearch = $l.checked;
-                var $l = document.querySelector("#strongMatchWord");
-                condition.strongMatchWord = $l.checked;
-                var $p = document.querySelector("input[name=matchPattern]:checked");
-                condition.matchPattern = $p.value;
+                condition.simpleCharSearch = $el(keys.simpleCharSearch).checked;
+                condition.vagueAlphabetCase = $el(keys.vagueAlphabetCase).checked;
+                condition.strongMatchWord = $el(keys.strongMatchWord).checked;
+                condition.matchPattern = $el(keys.matchPattern).value;
                 return condition;
             };
             var filter = function (input, output, filter) {
@@ -67,9 +72,9 @@
                 };
                 var nestObj = {
                     objkey_1_1: "objval_1_1",
-                    objkey_1_2: "objval_1_2",
+                    objKEY_1_2: "objval_1_2",
                     objnest_1_1: {
-                        objkey_2_1: "objval_2_1",
+                        objkey_2_1: "objVAL_2_1",
                         objnest_2_1: {
                             objkey_3_1: "objval_3_1"
                         }
@@ -78,7 +83,7 @@
                 var nestArr = [
                     "arrnest1_1",
                     "arrnest1_2",
-                    ["arrnest2_1", "arrnest2_2", "arrnest2_3", ["arrnest3_1", ["arrnest4_a"]]],
+                    ["arrnest2_1", "ArrNest2_2", "ARRNEST2_3", ["arrnest3_1", ["arrnest4_a"]]],
                     { arrinobj1: "duplicateval_1" },
                     { arrinobj2: "duplicateval_2" },
                     { arrinobj1: "duplicateval_1" },
@@ -218,7 +223,7 @@
                 font-size: 0.9rem;
                 border-radius: 10px;
                 border: 1px solid #cccccc;
-                padding: 0.2em 0.5em;
+                padding: 0.2em 0.4em;
                 background-color: white;
                 cursor: pointer;
             }
@@ -238,9 +243,9 @@
             .strongMatchWord {
                 color: red;
                 background-color: #ffdddd;
+                font-weight: bold;
             }
             #fRegex {
-                margin-left: 2em;
                 border: 1px solid #999999;
                 padding: 5px;
                 width: 15em;
@@ -257,19 +262,24 @@
             <h2>
                 処理前
                 <input type="button" value="クリア" onClick="clear('#iData')" />
-                <input type="button" value="JSONサンプル" onClick="setSampleJson('#iData')" />
+                <input type="button" value="サンプルデータ" onClick="setSampleJson('#iData')" />
                 <!-- <input type="button" value="GRIDサンプル" onClick="setSampleGrid('#iData')" /> -->
             </h2>
             <textarea id="iData" style="margin-bottom: 1em; height: 10em"></textarea><br />
-            <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" />
+            <input type="button" value="表示整形" onClick="shaping('#iData', '#oData')" />
+            <span style="margin-left: 0.5em">正規表現：</span>
             <input id="fRegex" type="text" value="(key|val).*\d|&|\[" />
-            <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
-            <span style="margin-left: 1em">オプション：</span>
+            <input type="button" value="フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
+
+            <span style="margin-left: 0.5em">オプション：</span>
             <input type="checkbox" id="strongMatchWord" checked />
             <label class="labelForCheck" for="strongMatchWord">該当文字強調</label>
+            <input type="checkbox" id="vagueAlphabetCase" checked />
+            <label class="labelForCheck" for="vagueAlphabetCase">英字大小無視</label>
             <input type="checkbox" id="simpleCharSearch" checked onclick="handleChangeSimpleCharSearch()" />
             <label class="labelForCheck" for="simpleCharSearch">単純文字検索</label>
-            <span style="margin-left: 1em">検索対象：</span>
+
+            <span style="margin-left: 0.5em">対象：</span>
             <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
             <label for="keyOrValue" class="labelForRadio">すべて</label>
             <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />

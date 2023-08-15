@@ -1097,7 +1097,8 @@ WrapJson.prototype = {
         var res = [];
         var printed = [];
         var current = [];
-        var findRegex = new RegExp(key, "gi");
+		var regexOpt = (condition.vagueAlphabetCase) ? "gi" : "g";
+        var findRegex = new RegExp(key, regexOpt);
 
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
@@ -1171,7 +1172,6 @@ WrapJson.prototype = {
     },
     findString: function (str, findRegex, condition) {
         var ret = { match: false, row: "" };
-        var self = this;
         ret.row = str.replace(/\&amp;/g, "&").replace(findRegex, function (m, s) {
             ret.match = true;
             if (condition.strongMatchWord) {
