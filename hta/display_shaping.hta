@@ -7,16 +7,42 @@
         <HTA:APPLICATION ID="thishta" />
         <script src="../wsf.js"></script>
         <script>
+            var keys = {
+                simpleCharSearch : "#simpleCharSearch",
+                vagueAlphabetCase: "#vagueAlphabetCase",
+                strongMatchWord: "#strongMatchWord",
+                matchPattern: "input[name=matchPattern]:checked",
+                keyOrVal : "#keyOrValue",
+                valOnly : "#valueOnly",
+                keyOnly : "#keyOnly",
+            };
+            var $el = function(selector){
+                return document.querySelector(selector);
+            };
+            var init = function () {
+                handleChangeSimpleCharSearch();
+            };
             var shaping = function (input, output) {
                 var $i = document.querySelector(input);
                 setValue(output, js.json.sharping($i.value));
             };
+            var handleChangeSimpleCharSearch = function () {
+                if ($el(keys.simpleCharSearch).checked) {
+                    $el(keys.valOnly).setAttribute("disabled", "disabled");
+                    $el(keys.keyOnly).setAttribute("disabled", "disabled");
+                    $el(keys.keyOrVal).setAttribute("disabled", "disabled");
+                } else {
+                    $el(keys.valOnly).removeAttribute("disabled");
+                    $el(keys.keyOnly).removeAttribute("disabled");
+                    $el(keys.keyOrVal).removeAttribute("disabled");
+                }
+            };
             var getFilterCondition = function () {
-                var $l = document.querySelector("#looseMatcher");
                 var condition = {};
-                condition.looseMatcher = $l.checked;
-                var $p = document.querySelector("input[name=matchPattern]:checked");
-                condition.matchPattern = $p.value;
+                condition.simpleCharSearch = $el(keys.simpleCharSearch).checked;
+                condition.vagueAlphabetCase = $el(keys.vagueAlphabetCase).checked;
+                condition.strongMatchWord = $el(keys.strongMatchWord).checked;
+                condition.matchPattern = $el(keys.matchPattern).value;
                 return condition;
             };
             var filter = function (input, output, filter) {
@@ -46,9 +72,9 @@
                 };
                 var nestObj = {
                     objkey_1_1: "objval_1_1",
-                    objkey_1_2: "objval_1_2",
+                    objKEY_1_2: "objval_1_2",
                     objnest_1_1: {
-                        objkey_2_1: "objval_2_1",
+                        objkey_2_1: "objVAL_2_1",
                         objnest_2_1: {
                             objkey_3_1: "objval_3_1"
                         }
@@ -57,7 +83,7 @@
                 var nestArr = [
                     "arrnest1_1",
                     "arrnest1_2",
-                    ["arrnest2_1", "arrnest2_2", "arrnest2_3", ["arrnest3_1", ["arrnest4_a"]]],
+                    ["arrnest2_1", "ArrNest2_2", "ARRNEST2_3", ["arrnest3_1", ["arrnest4_a"]]],
                     { arrinobj1: "duplicateval_1" },
                     { arrinobj2: "duplicateval_2" },
                     { arrinobj1: "duplicateval_1" },
@@ -110,7 +136,7 @@
                 if ($elem.value != undefined) {
                     return $elem.value;
                 } else {
-                    return $elem.innerHTML;
+                    return $elem.innerText;
                 }
             };
             var setSampleJson = function (selector) {
@@ -176,6 +202,7 @@
                 line-height: 1.5em;
             }
             input[type="button"] {
+                font-size: 0.9rem;
                 vertical-align: top;
                 margin: 0 2px;
                 border: none;
@@ -185,14 +212,43 @@
                 color: white;
                 cursor: pointer;
             }
+            input[type="checkbox"],
+            input[type="radio"] {
+                display: none;
+            }
+            .labelForCheck,
+            .labelForRadio {
+                vertical-align: top;
+                display: inline-block;
+                font-size: 0.9rem;
+                border-radius: 10px;
+                border: 1px solid #cccccc;
+                padding: 0.2em 0.4em;
+                background-color: white;
+                cursor: pointer;
+            }
+            input[type="checkbox"]:checked + .labelForCheck,
+            input[type="radio"]:checked + .labelForRadio {
+                color: white;
+                background-color: #6666ff;
+            }
+            input[type="checkbox"]:disabled + .labelForCheck,
+            input[type="radio"]:disabled + .labelForRadio {
+                color: #999999;
+                background-color: gray;
+            }
             textarea {
                 width: 100%;
             }
+            .strongMatchWord {
+                color: red;
+                background-color: #ffdddd;
+                font-weight: bold;
+            }
             #fRegex {
-                margin-left: 2em;
                 border: 1px solid #999999;
                 padding: 5px;
-                width: 20em;
+                width: 15em;
             }
             pre {
                 border: 1px solid gray;
@@ -201,34 +257,41 @@
             }
         </style>
     </head>
-    <body>
+    <body onload="init()">
         <div id="contents_area">
             <h2>
                 処理前
                 <input type="button" value="クリア" onClick="clear('#iData')" />
-                <input type="button" value="JSONサンプル" onClick="setSampleJson('#iData')" />
+                <input type="button" value="サンプルデータ" onClick="setSampleJson('#iData')" />
                 <!-- <input type="button" value="GRIDサンプル" onClick="setSampleGrid('#iData')" /> -->
             </h2>
             <textarea id="iData" style="margin-bottom: 1em; height: 10em"></textarea><br />
-            <input type="button" value="JSON整形" onClick="shaping('#iData', '#oData')" />
-            <input id="fRegex" type="text" value="val.*\d" />
-            <input type="button" value="正規表現フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
-            <input type="checkbox" id="looseMatcher" checked />
-            <label for="looseMatcher">囲み文字とインデントを無視</label>
-            <span style="margin-left: 2em">検索対象：</span>
+            <input type="button" value="表示整形" onClick="shaping('#iData', '#oData')" />
+            <span style="margin-left: 0.5em">正規表現：</span>
+            <input id="fRegex" type="text" value="(key|val).*\d|&|\[" />
+            <input type="button" value="フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
+
+            <span style="margin-left: 0.5em">オプション：</span>
+            <input type="checkbox" id="strongMatchWord" checked />
+            <label class="labelForCheck" for="strongMatchWord">該当文字強調</label>
+            <input type="checkbox" id="vagueAlphabetCase" checked />
+            <label class="labelForCheck" for="vagueAlphabetCase">英字大小無視</label>
+            <input type="checkbox" id="simpleCharSearch" checked onclick="handleChangeSimpleCharSearch()" />
+            <label class="labelForCheck" for="simpleCharSearch">単純文字検索</label>
+
+            <span style="margin-left: 0.5em">対象：</span>
             <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
-            <label for="keyOrValue">すべて</label>
+            <label for="keyOrValue" class="labelForRadio">すべて</label>
             <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />
-            <label for="keyOnly">KEYのみ</label>
+            <label for="keyOnly" class="labelForRadio">キーのみ</label>
             <input type="radio" name="matchPattern" id="valueOnly" value="valueOnly" />
-            <label for="valueOnly">VALUEのみ</label>
+            <label for="valueOnly" class="labelForRadio">値のみ</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
                 <input type="button" value="コピー" onClick="copy('#oData')" />
             </h2>
-            <textarea id="oData" style="height: 30em"></textarea><br />
-            <!-- <pre id="oData" style="height: 30em"></pre> -->
+            <pre id="oData"></pre>
             <br />
         </div>
     </body>

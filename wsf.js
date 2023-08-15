@@ -991,6 +991,11 @@ WrapJson.prototype = {
         return false;
     },
     sharping: function (str) {
+        // JSON.stringify sharping is smart. but return code fixed \n only. windows os is default \r\n.
+        // return JSON.stringify(JSON.parse(str), undefined, this.getIndent(1));
+        return this.sharpingByChar(str);
+    },
+    sharpingByChar: function (str) {
         str = str.replace(/(\n|\r)/g, "");
         var len = str.length;
         var ret = [];
@@ -1011,6 +1016,8 @@ WrapJson.prototype = {
                 ret.push(this.props.newLineStr + this.getIndent(nest) + curr);
             } else if (!isInnerValue && curr === ":") {
                 ret.push(curr + " ");
+            } else if (isInnerValue && curr === "&") {
+                ret.push("&amp;");
             } else if (curr === '"' && prev !== "\\") {
                 isInnerValue = !isInnerValue;
                 ret.push(curr);
@@ -1023,7 +1030,39 @@ WrapJson.prototype = {
     filter: function (str, key, condition) {
         if (!str || str.replace(/ +/, "").length == 0) return "";
         return this.filterString(str, key, condition);
+
+        // json object matcher is simple and better. but can not append html tags.
+        // TODO: How to replace while maintaining the number type as JSON.stringify.
         // return this.filterObject(str, key);
+
+        // JSON.stringify has replacer(filter). but need to verify functionality and learn to use it.
+        // TODO: How to eject unmatch array element.
+        // return this.filterJson(str, key);
+    },
+    filterJson: function (str, key) {
+        if (!str || String(str).length == 0) return "";
+        var jsonObj = JSON.parse(str);
+        var findRegex = new RegExp(key, "i");
+        var self = this;
+        return JSON.stringify(
+            jsonObj,
+            function (key, val) {
+                if (typeof val === "string" && !key.match(findRegex)) {
+                    return undefined;
+                }
+                // if(typeof val === 'number' && !String(val).match(findRegex)){
+                // 	return undefined;
+                // }
+                return val;
+            },
+            this.getIndent(1)
+        );
+    },
+    isArray: function (value) {
+        return Object.prototype.toString.call(value) === "[object Array]";
+    },
+    isObject: function (value) {
+        return Object.prototype.toString.call(value) === "[object Object]";
     },
     filterObject: function (str, key) {
         if (!str || String(str).length == 0) return "";
@@ -1058,12 +1097,18 @@ WrapJson.prototype = {
         var res = [];
         var printed = [];
         var current = [];
-        var findRegex = new RegExp(key, "i");
+		var regexOpt = (condition.vagueAlphabetCase) ? "gi" : "g";
+        var findRegex = new RegExp(key, regexOpt);
 
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var currNest = this.getNestLevel(row);
-            var keyval = this.splitKeyValue(row);
+            var splitRow = this.splitKeyValue(row);
+            if (printed.length > currNest) {
+                this.pushCloseNest(res, printed);
+            }
+            var findres = this.findRow(splitRow, findRegex, condition);
+            row = findres.row;
             if (current.length == currNest + 1) {
                 current[currNest] = row;
             } else if (current.length < currNest + 1) {
@@ -1073,32 +1118,83 @@ WrapJson.prototype = {
                 current.pop();
                 current[currNest] = row;
             }
-            if (printed.length > currNest) {
-                this.setCloseNest(res, printed);
-            }
-            if (condition.matchPattern === "keyOnly") {
-                row = keyval.key;
-            } else if (condition.matchPattern === "valueOnly") {
-                row = keyval.value;
-            }
-            if (condition.looseMatcher) {
-                row = row.replace(/^ +/, "").replace(/\"/g, "");
-            }
-            if (row.match(findRegex)) {
-                this.setParentNest(res, printed, current);
+            if (findres.match) {
+                this.pushParentNest(res, printed, current);
             }
         }
+        this.pushCloseNest(res, printed);
         return this.trimLastChildComma(res).join(this.props.newLineStr);
     },
-    splitKeyValue: function (str) {
-        var ret = { key: "", value: "" };
-        rowsplit = str.replace(/^( *\"[^:]+\") *: *(.*) *$/, function (m, s1, s2) {
-            ret.key = s1;
-            ret.value = s2;
+    findRow: function (splitRow, findRegex, condition) {
+        if (condition.simpleCharSearch) {
+            return this.findString(splitRow.base, findRegex, condition);
+        }
+        var ret = { match: false, row: "" };
+        if (splitRow.isGrouping && splitRow.isSplit && condition.matchPattern !== "valueOnly") {
+            ret = this.findRowOnlyKey(splitRow, findRegex, condition);
+        } else if (splitRow.isGrouping) {
+            ret.row = splitRow.base;
+        } else if (!splitRow.isSplit && condition.matchPattern !== "keyOnly") {
+            ret = this.findString(splitRow.base, findRegex, condition);
+        } else if (condition.matchPattern === "keyOnly") {
+            ret = this.findRowOnlyKey(splitRow, findRegex, condition);
+        } else if (condition.matchPattern === "valueOnly") {
+            ret = this.findRowOnlyValue(splitRow, findRegex, condition);
+        } else {
+            var resKey = this.findStringByMatcher(splitRow.key, findRegex, condition);
+            var resVal = this.findStringByMatcher(splitRow.value, findRegex, condition);
+            ret.match = resKey.match || resVal.match;
+            ret.row = resKey.row + ":" + resVal.row;
+        }
+        return ret;
+    },
+    findRowOnlyKey: function (splitRow, findRegex, condition) {
+        var res = this.findStringByMatcher(splitRow.key, findRegex, condition);
+        return { match: res.match, row: res.row + ":" + splitRow.value };
+    },
+    findRowOnlyValue: function (splitRow, findRegex, condition) {
+        var res = this.findStringByMatcher(splitRow.value, findRegex, condition);
+        return { match: res.match, row: splitRow.key + ":" + res.row };
+    },
+    findStringByMatcher: function (str, findRegex, condition) {
+        var self = this;
+        var ret = { match: false, row: "" };
+        var matcher = /^( *\")(.*)(\" *,?)$/;
+        if (!str.match(matcher)) {
+            matcher = /^( *)(.*)( *,?)$/;
+        }
+        ret.row = str.replace(matcher, function (m, prefix, s, suffix) {
+            var res = self.findString(s, findRegex, condition);
+            ret.match = res.match;
+            return prefix + res.row + suffix;
         });
         return ret;
     },
-    setParentNest: function (res, printed, current) {
+    findString: function (str, findRegex, condition) {
+        var ret = { match: false, row: "" };
+        ret.row = str.replace(/\&amp;/g, "&").replace(findRegex, function (m, s) {
+            ret.match = true;
+            if (condition.strongMatchWord) {
+                return "<span class='strongMatchWord'>" + m + "</span>";
+            }
+            return m;
+        });
+        ret.row = ret.row.replace(/\&/g, "&amp;");
+        return ret;
+    },
+    splitKeyValue: function (str) {
+        var ret = { key: "", value: "", base: str, isSplit: false, isGrouping: false };
+        str.replace(/^( *\"[^:]+\" *):(.*)$/, function (m, s1, s2) {
+            ret.isSplit = true;
+            ret.key = s1;
+            ret.value = s2;
+        });
+        if (str.match(/ *([\{\[]|[\}\]]) *,? *$/)) {
+            ret.isGrouping = true;
+        }
+        return ret;
+    },
+    pushParentNest: function (res, printed, current) {
         for (var pushNest = 0; pushNest < current.length; pushNest++) {
             if (printed.length < pushNest || printed[pushNest] != current[pushNest]) {
                 res.push(current[pushNest]);
@@ -1106,11 +1202,16 @@ WrapJson.prototype = {
             }
         }
     },
-    setCloseNest: function (res, printed) {
+    pushCloseNest: function (res, printed) {
+        if (!printed.length) return;
         var poped = printed.pop();
-        if (poped.match(/\[ *$/)) {
+        var matcher = {
+            closeArr: /\[ *(\<\/span\>)? *$/,
+            closeObj: /\{ *(\<\/span\>)? *$/
+        };
+        if (poped.match(matcher.closeArr)) {
             res.push(this.getIndent(printed.length) + "],");
-        } else if (poped.match(/\{ *$/)) {
+        } else if (poped.match(matcher.closeObj)) {
             res.push(this.getIndent(printed.length) + "},");
         }
     },
