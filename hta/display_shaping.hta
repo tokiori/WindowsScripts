@@ -11,9 +11,6 @@
                 vagueAlphabetCase: "#vagueAlphabetCase",
                 strongMatchWord: "#strongMatchWord",
                 matchPattern: "input[name=matchPattern]:checked",
-                keyOrVal : "#keyOrValue",
-                valOnly : "#valueOnly",
-                keyOnly : "#keyOnly",
             };
             var $el = function(selector){
                 return document.querySelector(selector);
@@ -198,12 +195,10 @@
                 color: white;
                 cursor: pointer;
             }
-            input[type="checkbox"],
-            input[type="radio"] {
+            .labelButton {
                 display: none;
             }
-            .labelForCheck,
-            .labelForRadio {
+            .labelButton + label {
                 vertical-align: top;
                 display: inline-block;
                 font-size: 0.9rem;
@@ -213,13 +208,11 @@
                 background-color: white;
                 cursor: pointer;
             }
-            input[type="checkbox"]:checked + .labelForCheck,
-            input[type="radio"]:checked + .labelForRadio {
+            .labelButton:checked + label {
                 color: white;
                 background-color: #6666ff;
             }
-            input[type="checkbox"]:disabled + .labelForCheck,
-            input[type="radio"]:disabled + .labelForRadio {
+            .labelButton:disabled + label {
                 color: #999999;
                 background-color: gray;
             }
@@ -258,20 +251,20 @@
             <input type="button" value="フィルタ" onClick="filter('#iData', '#oData', '#fRegex')" />
 
             <span style="margin-left: 0.5em">オプション：</span>
-            <input type="checkbox" id="strongMatchWord" checked />
-            <label class="labelForCheck" for="strongMatchWord">該当文字強調</label>
-            <input type="checkbox" id="vagueAlphabetCase" checked />
-            <label class="labelForCheck" for="vagueAlphabetCase">英字大小無視</label>
+            <input type="checkbox" class="labelButton" id="strongMatchWord" checked />
+            <label for="strongMatchWord">該当文字強調</label>
+            <input type="checkbox" class="labelButton" id="vagueAlphabetCase" checked />
+            <label for="vagueAlphabetCase">英字大小無視</label>
 
             <span style="margin-left: 0.5em">検索：</span>
-            <input type="radio" name="matchPattern" id="simpleChar" value="simpleChar" checked />
-            <label class="labelForRadio" for="simpleChar">単純文字</label>
-            <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" />
-            <label class="labelForRadio" for="keyOrValue">キーと値</label>
-            <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />
-            <label class="labelForRadio" for="keyOnly">キーのみ</label>
-            <input type="radio" name="matchPattern" id="valueOnly" value="valueOnly" />
-            <label class="labelForRadio" for="valueOnly">値のみ</label>
+            <input type="radio" class="labelButton" name="matchPattern" id="simpleChar" value="simpleChar" />
+            <label for="simpleChar">単純文字</label>
+            <input type="radio" class="labelButton" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
+            <label for="keyOrValue">キーと値</label>
+            <input type="radio" class="labelButton" name="matchPattern" id="keyOnly" value="keyOnly" />
+            <label for="keyOnly">キーのみ</label>
+            <input type="radio" class="labelButton" name="matchPattern" id="valueOnly" value="valueOnly" />
+            <label for="valueOnly">値のみ</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />

@@ -1127,7 +1127,7 @@ WrapJson.prototype = {
     },
     findRow: function (splitRow, findRegex, condition) {
         if (condition.matchPattern === "simpleChar") {
-            return this.findString(splitRow.base, findRegex, condition);
+            return this.effectMatchWord(splitRow.base, findRegex, condition);
         }
         var ret = { match: false, row: "" };
         if (splitRow.isGrouping && splitRow.isSplit && condition.matchPattern !== "valueOnly") {
@@ -1135,7 +1135,7 @@ WrapJson.prototype = {
         } else if (splitRow.isGrouping) {
             ret.row = splitRow.base;
         } else if (!splitRow.isSplit && condition.matchPattern !== "keyOnly") {
-            ret = this.findString(splitRow.base, findRegex, condition);
+            ret = this.findStringByMatcher(splitRow.base, findRegex, condition);
         } else if (condition.matchPattern === "keyOnly") {
             ret = this.findRowOnlyKey(splitRow, findRegex, condition);
         } else if (condition.matchPattern === "valueOnly") {
@@ -1159,18 +1159,19 @@ WrapJson.prototype = {
     findStringByMatcher: function (str, findRegex, condition) {
         var self = this;
         var ret = { match: false, row: "" };
-        var matcher = /^( *\")(.*)(\" *,?)$/;
+		var suffixComma = (str.match(/,$/)) ? "," : "";
+		var matcher = new RegExp('^( *\")(.*)(\" *' + suffixComma + ')$', "g");
         if (!str.match(matcher)) {
-            matcher = /^( *)(.*)( *,?)$/;
+			matcher = new RegExp('^( *)(.*)( *' + suffixComma + ')$', "g");
         }
         ret.row = str.replace(matcher, function (m, prefix, s, suffix) {
-            var res = self.findString(s, findRegex, condition);
+            var res = self.effectMatchWord(s, findRegex, condition);
             ret.match = res.match;
             return prefix + res.row + suffix;
         });
         return ret;
     },
-    findString: function (str, findRegex, condition) {
+    effectMatchWord: function (str, findRegex, condition) {
         var ret = { match: false, row: "" };
         ret.row = str.replace(/\&amp;/g, "&").replace(findRegex, function (m, s) {
             ret.match = true;
