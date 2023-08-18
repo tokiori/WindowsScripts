@@ -1126,7 +1126,7 @@ WrapJson.prototype = {
         return this.trimLastChildComma(res).join(this.props.newLineStr);
     },
     findRow: function (splitRow, findRegex, condition) {
-        if (condition.simpleCharSearch) {
+        if (condition.matchPattern === "simpleChar") {
             return this.findString(splitRow.base, findRegex, condition);
         }
         var ret = { match: false, row: "" };

@@ -8,7 +8,6 @@
         <script src="../wsf.js"></script>
         <script>
             var keys = {
-                simpleCharSearch : "#simpleCharSearch",
                 vagueAlphabetCase: "#vagueAlphabetCase",
                 strongMatchWord: "#strongMatchWord",
                 matchPattern: "input[name=matchPattern]:checked",
@@ -20,26 +19,13 @@
                 return document.querySelector(selector);
             };
             var init = function () {
-                handleChangeSimpleCharSearch();
             };
             var shaping = function (input, output) {
                 var $i = document.querySelector(input);
                 setValue(output, js.json.sharping($i.value));
             };
-            var handleChangeSimpleCharSearch = function () {
-                if ($el(keys.simpleCharSearch).checked) {
-                    $el(keys.valOnly).setAttribute("disabled", "disabled");
-                    $el(keys.keyOnly).setAttribute("disabled", "disabled");
-                    $el(keys.keyOrVal).setAttribute("disabled", "disabled");
-                } else {
-                    $el(keys.valOnly).removeAttribute("disabled");
-                    $el(keys.keyOnly).removeAttribute("disabled");
-                    $el(keys.keyOrVal).removeAttribute("disabled");
-                }
-            };
             var getFilterCondition = function () {
                 var condition = {};
-                condition.simpleCharSearch = $el(keys.simpleCharSearch).checked;
                 condition.vagueAlphabetCase = $el(keys.vagueAlphabetCase).checked;
                 condition.strongMatchWord = $el(keys.strongMatchWord).checked;
                 condition.matchPattern = $el(keys.matchPattern).value;
@@ -276,16 +262,16 @@
             <label class="labelForCheck" for="strongMatchWord">該当文字強調</label>
             <input type="checkbox" id="vagueAlphabetCase" checked />
             <label class="labelForCheck" for="vagueAlphabetCase">英字大小無視</label>
-            <input type="checkbox" id="simpleCharSearch" checked onclick="handleChangeSimpleCharSearch()" />
-            <label class="labelForCheck" for="simpleCharSearch">単純文字検索</label>
 
-            <span style="margin-left: 0.5em">対象：</span>
-            <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" checked />
-            <label for="keyOrValue" class="labelForRadio">すべて</label>
+            <span style="margin-left: 0.5em">検索：</span>
+            <input type="radio" name="matchPattern" id="simpleChar" value="simpleChar" checked />
+            <label class="labelForRadio" for="simpleChar">単純文字</label>
+            <input type="radio" name="matchPattern" id="keyOrValue" value="keyOrValue" />
+            <label class="labelForRadio" for="keyOrValue">キーと値</label>
             <input type="radio" name="matchPattern" id="keyOnly" value="keyOnly" />
-            <label for="keyOnly" class="labelForRadio">キーのみ</label>
+            <label class="labelForRadio" for="keyOnly">キーのみ</label>
             <input type="radio" name="matchPattern" id="valueOnly" value="valueOnly" />
-            <label for="valueOnly" class="labelForRadio">値のみ</label>
+            <label class="labelForRadio" for="valueOnly">値のみ</label>
             <h2>
                 処理後
                 <input type="button" value="クリア" onClick="clear('#oData')" />
