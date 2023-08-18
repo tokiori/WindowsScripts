@@ -14,31 +14,49 @@
 var WindowsJScript = function(){ return this; };
 WindowsJScript.prototype = {
 
+	mode: null,
 	multiple : false,
 	args : [],
 	info : null,
 	init : function(){
-		try{
-			this.initwsf();
-		} catch(e) {
-			this.inithta();
+		if(this.initwsf()){
+			this.mode = "wsf";
+			js.log.init();
+		} else if(this.inithta()) {
+			this.mode = "hta";
+			js.log.init();
+		} else {
+			this.mode = "web";
+			js.initweb();
 		}
-		js.log.init();
-	},
-	inithta : function(){
-		// HTA warn avoid.
-		WScript = null;
-		this.info = this.path.info(location.pathname);
-		this.args = this.hta.href2arg(location.href);
 	},
 	initwsf : function(){
-		this.info = this.path.info(WScript.ScriptFullName);
-		for(var i=0; i<WScript.Arguments.length; i++){
-			this.args.push(WScript.Arguments.Item(i));
+		try {
+			this.info = this.path.info(WScript.ScriptFullName);
+			for(var i=0; i<WScript.Arguments.length; i++){
+				this.args.push(WScript.Arguments.Item(i));
+			}
+			if(!this.multiple && this.cmd.executed()){
+				this.quit("duplicate execute.");
+			}
+			return true;
+		} catch(e) {
+			return false;
 		}
-		if(!this.multiple && this.cmd.executed()){
-			this.quit("duplicate execute.");
+	},
+	inithta : function(){
+		try {
+			// HTA warn avoid.
+			WScript = null;
+			this.info = this.path.info(location.pathname);
+			this.args = this.hta.href2arg(location.href);
+			return true;
+		} catch(e) {
+			return false;
 		}
+	},
+	initweb : function(){
+		WScript = null;
 	},
 	quit : function(txt){
 		var msg = [];
@@ -839,8 +857,8 @@ WrapLog.prototype = {
 	err  : function(txt){ return this.add(js.date.now("[YYYY/MM/DD hh:mm:ss.ms][ERROR]") + txt, "err"); },
 	dbg  : function(txt){ return this.add(js.date.now("[YYYY/MM/DD hh:mm:ss.ms][DEBUG]") + txt, "dbg"); }
 };
-WindowsJScript.prototype.log = new WrapLog();
-WindowsJScript.prototype.Logger = WrapLog;
+	WindowsJScript.prototype.log = new WrapLog();
+	WindowsJScript.prototype.Logger = WrapLog;
 
 //----------------------------------------------
 // WindowsJScript.book
@@ -992,6 +1010,7 @@ WrapJson.prototype = {
     },
     sharping: function (str) {
         // JSON.stringify sharping is smart. but return code fixed \n only. windows os is default \r\n.
+		// and show html escape char then required replace & to &amp; 
         // return JSON.stringify(JSON.parse(str), undefined, this.getIndent(1));
         return this.sharpingByChar(str);
     },
@@ -1058,12 +1077,6 @@ WrapJson.prototype = {
             this.getIndent(1)
         );
     },
-    isArray: function (value) {
-        return Object.prototype.toString.call(value) === "[object Array]";
-    },
-    isObject: function (value) {
-        return Object.prototype.toString.call(value) === "[object Object]";
-    },
     filterObject: function (str, key) {
         if (!str || String(str).length == 0) return "";
         var jsonObj = JSON.parse(str);
@@ -1126,8 +1139,8 @@ WrapJson.prototype = {
         return this.trimLastChildComma(res).join(this.props.newLineStr);
     },
     findRow: function (splitRow, findRegex, condition) {
-        if (condition.simpleCharSearch) {
-            return this.findString(splitRow.base, findRegex, condition);
+        if (condition.matchPattern === "simpleChar") {
+            return this.effectMatchWord(splitRow.base, findRegex, condition);
         }
         var ret = { match: false, row: "" };
         if (splitRow.isGrouping && splitRow.isSplit && condition.matchPattern !== "valueOnly") {
@@ -1135,7 +1148,7 @@ WrapJson.prototype = {
         } else if (splitRow.isGrouping) {
             ret.row = splitRow.base;
         } else if (!splitRow.isSplit && condition.matchPattern !== "keyOnly") {
-            ret = this.findString(splitRow.base, findRegex, condition);
+            ret = this.findStringByMatcher(splitRow.base, findRegex, condition);
         } else if (condition.matchPattern === "keyOnly") {
             ret = this.findRowOnlyKey(splitRow, findRegex, condition);
         } else if (condition.matchPattern === "valueOnly") {
@@ -1159,18 +1172,19 @@ WrapJson.prototype = {
     findStringByMatcher: function (str, findRegex, condition) {
         var self = this;
         var ret = { match: false, row: "" };
-        var matcher = /^( *\")(.*)(\" *,?)$/;
+		var suffixComma = (str.match(/,$/)) ? "," : "";
+		var matcher = new RegExp('^( *\")(.*)(\" *' + suffixComma + ')$', "g");
         if (!str.match(matcher)) {
-            matcher = /^( *)(.*)( *,?)$/;
+			matcher = new RegExp('^( *)(.*)( *' + suffixComma + ')$', "g");
         }
         ret.row = str.replace(matcher, function (m, prefix, s, suffix) {
-            var res = self.findString(s, findRegex, condition);
+            var res = self.effectMatchWord(s, findRegex, condition);
             ret.match = res.match;
             return prefix + res.row + suffix;
         });
         return ret;
     },
-    findString: function (str, findRegex, condition) {
+    effectMatchWord: function (str, findRegex, condition) {
         var ret = { match: false, row: "" };
         ret.row = str.replace(/\&amp;/g, "&").replace(findRegex, function (m, s) {
             ret.match = true;
