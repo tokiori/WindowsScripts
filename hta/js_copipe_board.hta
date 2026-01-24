@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- <meta http-equiv="X-UA-Compatible" content="IE=EDGE" /> -->
+        <meta http-equiv="X-UA-Compatible" content="IE=9" />
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, user-scalable=yes" />
+        <title>コピペボード</title>
+        <HTA:APPLICATION ID="thishta" />
+        <!-- <script src="../wsf.js"></script> -->
+        <script>
+            var commonScripts = function () {
+                return this;
+            };
+            commonScripts.prototype = {
+                $read: function (selector, value) {
+                    var $elem = document.querySelector(selector);
+                    if ($elem.value != undefined) {
+                        return $elem.value;
+                    } else {
+                        return $elem.innerHTML;
+                    }
+                },
+                $write: function (selector, value) {
+                    var $elem = document.querySelector(selector);
+                    if ($elem.value != undefined) {
+                        $elem.value = value;
+                    } else {
+                        $elem.innerHTML = value;
+                    }
+                },
+                $clear: function (selector) {
+                    this.$write(selector, "");
+                },
+                snakeToCamel: function (val) {
+                    return val.replace(/\_([a-z])/g, function (m, s1) {
+                        return s1.toUpperCase();
+                    });
+                },
+                camelToSnake: function (val) {
+                    if (typeof val !== "string") return;
+                    return val.replace(/([A-Z])/g, function (m, s1) {
+                        return "_" + s1.toLowerCase();
+                    });
+                },
+                toClipboard: function (text) {
+                    var choise;
+                    var res;
+
+                    if (navigator.userAgent.match(/ipad|iphone/i)) {
+                        choise = "navigator.userAgent.match(/ipad|iphone/i)";
+                        var range = document.createRange();
+                        range.selectNodeContents(ta);
+                        var sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                        res = document.execCommand("copy");
+                    } else if (window.clipboardData) {
+                        choise = "window.clipboardData";
+                        res = window.clipboardData.setData("Text", text);
+                    } else if (navigator.clipboard) {
+                        choise = "navigator.clipboard";
+                        res = navigator.clipboard.writeText(text);
+                    } else {
+                        choise = "ta.select()";
+                        var ta = document.createElement("textarea");
+                        ta.value = text;
+                        ta.setAttribute("readonly", "readonly");
+                        ta.setAttribute("contenteditable", true);
+                        ta.style.top = "0";
+                        ta.style.left = "0";
+                        ta.style.position = "fixed";
+                        try {
+                            document.body.appendChild(ta);
+                            ta.focus();
+                            ta.select();
+                            res = document.execCommand("copy");
+                        } finally {
+                            document.body.removeChild(ta);
+                        }
+                    }
+                    if (!!!res) {
+                        window.prompt("Copy to clipboard: Ctrl+C, Enter", text);
+                    }
+                    // js.echo(js.str.format("toclipboard:${0}, text:${1}, case:${2}", res, text, choise));
+                    return res;
+                },
+                byClipboard: function (selector) {
+                    var target = document.querySelector("textarea");
+                    if (window && window.clipboardData) {
+                        var text = window.clipboardData.getData("Text");
+                        target.textContent = target.textContent + text;
+                    } else if (document.execCommand) {
+                        target.focus();
+                        document.execCommand("paste");
+                    }
+                }
+            };
+            var cs = new commonScripts();
+            var toast = function (selector, val, ms) {
+                cs.$write(selector, val);
+                setTimeout(function () {
+                    cs.$write(selector, "");
+                }, ms);
+            };
+            var camel2Snake = function (from, to) {
+                var val = cs.camelToSnake(cs.$read(from));
+                cs.$write(to, val);
+            };
+            var snake2Camel = function (from, to) {
+                var val = cs.snakeToCamel(cs.$read(from));
+                cs.$write(to, val);
+            };
+            var copyText = function (value, text) {
+                cs.toClipboard(value);
+                toast("#toast", "[copy] " + text, 2000);
+            };
+            var readyToCopyText = function (selector) {
+                var elems = document.querySelectorAll(selector);
+                for (var i = 0; i < elems.length; i++) {
+                    var $el = elems[i];
+                    $el.addEventListener("click", function (e) {
+                        copyText(e.target.getAttribute("val"), e.target.innerHTML);
+                    });
+                }
+            };
+            var init = function () {
+                readyToCopyText(".copyText");
+                toast("#toast", "ready", 1000);
+            };
+        </script>
+        <style>
+            * {
+                font-size: 11pt;
+                font-family: "メイリオ", "Arial";
+            }
+            table.board {
+                width: 100%;
+            }
+            table.board textarea {
+                width: 100%;
+                height: 10em;
+            }
+            button {
+                cursor: pointer;
+                border-radius: 5px;
+                border: 1px solid #333333;
+                padding: 2px 15px;
+                background-color: #eeeeee;
+            }
+            button:hover {
+                background-color: #ccccff;
+            }
+            button.copied,
+            button:active {
+                background-color: #ccffcc;
+            }
+            #toast {
+                background-color: #cccccc;
+                padding: 2px 5px;
+                height: 1.5em;
+            }
+            @media screen and (min-width: 1921px) {
+                * {
+                    font-size: 14pt;
+                }
+                button {
+                    padding: 4px 15px;
+                    border-radius: 15px;
+                }
+                #toast {
+                    padding: 4px 15px;
+                }
+            }
+        </style>
+    </head>
+    <body onload="init()">
+        <div id="contents_area">
+            <table>
+                <tr>
+                    <td><button class="copyText" val="[sample] copied 1st value!">copySample1</button></td>
+                    <td><button class="copyText" val="[sample] copied 2nd value!">copySample2</button></td>
+                </tr>
+            </table>
+            <p id="toast"></p>
+            <table class="board">
+                <tr>
+                    <td>
+                        from<br />
+                        <textarea id="fromBoard"></textarea>
+                        <br />
+                        <button onclick="cs.$clear('#fromBoard')">clear</button>
+                        <button onclick="cs.byClipboard('#fromBoard')">paste</button>
+                    </td>
+                    <td style="text-align: center">
+                        convert to
+                        <br />
+                        <button onclick="camel2Snake('#fromBoard', '#toBoard')">camel -> snake</button>
+                        <br />
+                        <button onclick="snake2Camel('#fromBoard', '#toBoard')">snake -> camel</button>
+                    </td>
+                    <td>
+                        to<br />
+                        <textarea id="toBoard"></textarea> <br />
+                        <button onclick="cs.$clear('#toBoard')">clear</button>
+                        <button onclick="copyText(cs.$read('#toBoard'), '#toBoard')">copy</button>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </body>
+</html>
